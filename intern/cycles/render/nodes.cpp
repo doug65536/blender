@@ -65,11 +65,14 @@ Transform TextureMapping::compute_transform()
 
 bool TextureMapping::skip()
 {
-	if(translation != make_float3(0.0f, 0.0f, 0.0f))
+	const float3 zero = make_float3(0.0f);
+	const float3 one = make_float3(1.0f);
+
+	if(translation != zero)
 		return false;
-	if(rotation != make_float3(0.0f, 0.0f, 0.0f))
+	if(rotation != zero)
 		return false;
-	if(scale != make_float3(1.0f, 1.0f, 1.0f))
+	if(scale != one)
 		return false;
 	
 	if(x_mapping != X || y_mapping != Y || z_mapping != Z)

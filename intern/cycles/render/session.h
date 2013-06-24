@@ -82,22 +82,23 @@ public:
 	}
 
 	bool modified(const SessionParams& params)
-	{ return !(device.type == params.device.type
-		&& device.id == params.device.id
-		&& background == params.background
-		&& progressive_refine == params.progressive_refine
-		&& output_path == params.output_path
-		/* && samples == params.samples */
-		&& progressive == params.progressive
-		&& experimental == params.experimental
-		&& tile_size == params.tile_size
-		&& start_resolution == params.start_resolution
-		&& threads == params.threads
-		&& cancel_timeout == params.cancel_timeout
-		&& reset_timeout == params.reset_timeout
-		&& text_timeout == params.text_timeout
-		&& shadingsystem == params.shadingsystem); }
-
+	{
+		return !(device.type == params.device.type
+			&& device.id == params.device.id
+			&& background == params.background
+			&& progressive_refine == params.progressive_refine
+			&& output_path == params.output_path
+			/* && samples == params.samples */
+			&& progressive == params.progressive
+			&& experimental == params.experimental
+			&& tile_size == params.tile_size
+			&& start_resolution == params.start_resolution
+			&& threads == params.threads
+			&& cancel_timeout == params.cancel_timeout
+			&& reset_timeout == params.reset_timeout
+			&& text_timeout == params.text_timeout
+			&& shadingsystem == params.shadingsystem);
+	}
 };
 
 /* Session

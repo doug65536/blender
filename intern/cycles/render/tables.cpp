@@ -70,7 +70,7 @@ size_t LookupTables::add_table(DeviceScene *dscene, vector<float>& data)
 	/* find space to put lookup table */
 	list<Table>::iterator table;
 
-	for(table = lookup_tables.begin(); table != lookup_tables.end(); table++) {
+	for(table = lookup_tables.begin(); table != lookup_tables.end(); ++table) {
 		if(new_table.offset + new_table.size <= table->offset) {
 			lookup_tables.insert(table, new_table);
 			break;
@@ -96,7 +96,7 @@ void LookupTables::remove_table(size_t offset)
 
 	list<Table>::iterator table;
 
-	for(table = lookup_tables.begin(); table != lookup_tables.end(); table++) {
+	for(table = lookup_tables.begin(); table != lookup_tables.end(); ++table) {
 		if(table->offset == offset) {
 			lookup_tables.erase(table);
 			break;

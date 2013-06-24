@@ -33,7 +33,7 @@ void LbmFsgrSolver::step() {
 }
 
 // lbm main step
-void messageOutputForce(string from);
+void messageOutputForce(const string &from);
 void LbmFsgrSolver::stepMain() { 
 	myTime_t timestart = getTime();
 

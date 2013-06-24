@@ -297,14 +297,14 @@ static string col_std = col_bright_gray;
 std::ostringstream globOutstr;
 bool               globOutstrForce=false;
 #define DM_NONE      100
-void messageOutputForce(string from) {
+void messageOutputForce(const string &from) {
 	bool org = globOutstrForce;
 	globOutstrForce = true;
 	messageOutputFunc(from, DM_NONE, "\n", 0);
 	globOutstrForce = org;
 }
 
-void messageOutputFunc(string from, int id, string msg, myTime_t interval) {
+void messageOutputFunc(const string &from, int id, const string &msg, myTime_t interval) {
 	// fast skip
 	if((id!=DM_FATAL)&&(gDebugLevel<=0)) return;
 

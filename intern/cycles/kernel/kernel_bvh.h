@@ -42,15 +42,22 @@ CCL_NAMESPACE_BEGIN
 #define NO_EXTENDED_PRECISION volatile
 #endif
 
-__device_inline float3 bvh_inverse_direction(float3 dir)
+__device_inline float3 bvh_inverse_direction(const float3 dir)
 {
 	/* avoid divide by zero (ooeps = exp2f(-80.0f)) */
-	float ooeps = 0.00000000000000000000000082718061255302767487140869206996285356581211090087890625f;
+    const float ooeps = 8.2718061255302767e-25f;    /* constant too precise for double */
 	float3 idir;
 
-	idir.x = 1.0f/((fabsf(dir.x) > ooeps)? dir.x: copysignf(ooeps, dir.x));
-	idir.y = 1.0f/((fabsf(dir.y) > ooeps)? dir.y: copysignf(ooeps, dir.y));
-	idir.z = 1.0f/((fabsf(dir.z) > ooeps)? dir.z: copysignf(ooeps, dir.z));
+    //idir.x = 1.0f/((fabsf(dir.x) > ooeps)? dir.x: copysignf(ooeps, dir.x));
+    //idir.y = 1.0f/((fabsf(dir.y) > ooeps)? dir.y: copysignf(ooeps, dir.y));
+    //idir.z = 1.0f/((fabsf(dir.z) > ooeps)? dir.z: copysignf(ooeps, dir.z));
+
+    float3 absdir = fabs(dir);
+    float3 ooeps3 = make_float3(ooeps);
+    float3 ooeps3cs = copysignf(ooeps3, dir);
+
+	float3 result = mask_select(absdir > ooeps3, dir, ooeps3cs);
+	idir = rcp(result);
 
 	return idir;
 }
@@ -122,7 +129,7 @@ __device_inline bool bvh_triangle_intersect(KernelGlobals *kg, Intersection *ise
 	float3 dir = 1.0f/idir;
 
 	float Oz = v00.w - P.x*v00.x - P.y*v00.y - P.z*v00.z;
-	float invDz = 1.0f/(dir.x*v00.x + dir.y*v00.y + dir.z*v00.z);
+	float invDz = rcp(dot(make_float4(dir), v00));// 1.0f/(dir.x*v00.x + dir.y*v00.y + dir.z*v00.z);
 	float t = Oz * invDz;
 
 	if(t > 0.0f && t < isect->t) {

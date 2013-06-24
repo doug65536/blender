@@ -60,6 +60,8 @@ public:
 		/* do now to avoid thread issues */
 		system_cpu_support_sse2();
 		system_cpu_support_sse3();
+		system_cpu_support_sse4();
+		system_cpu_support_avx1();
 	}
 
 	~CPUDevice()
@@ -158,72 +160,45 @@ public:
 #endif
 
 		RenderTile tile;
-		
+
+		typedef void (*kernel_impl_t)(KernelGlobals *kg, float *buffer, unsigned int *rng_state, int sample, int x, int y, int offset, int stride);
+
+		kernel_impl_t path_trace_impl = kernel_cpu_path_trace;
+
+#ifdef WITH_OPTIMIZED_KERNEL
+		if(system_cpu_support_avx1()) {
+			path_trace_impl = kernel_cpu_avx1_path_trace;
+		} else if(system_cpu_support_sse4()) {
+			path_trace_impl = kernel_cpu_sse4_path_trace;
+		} else if(system_cpu_support_sse3()) {
+			path_trace_impl = kernel_cpu_sse3_path_trace;
+		} else if(system_cpu_support_sse2()) {
+			path_trace_impl = kernel_cpu_sse2_path_trace;
+		}
+#endif
+
 		while(task.acquire_tile(this, tile)) {
 			float *render_buffer = (float*)tile.buffer;
 			uint *rng_state = (uint*)tile.rng_state;
 			int start_sample = tile.start_sample;
 			int end_sample = tile.start_sample + tile.num_samples;
 
-#ifdef WITH_OPTIMIZED_KERNEL
-			if(system_cpu_support_sse3()) {
-				for(int sample = start_sample; sample < end_sample; sample++) {
-					if (task.get_cancel() || task_pool.cancelled()) {
-						if(task.need_finish_queue == false)
-							break;
-					}
-
-					for(int y = tile.y; y < tile.y + tile.h; y++) {
-						for(int x = tile.x; x < tile.x + tile.w; x++) {
-							kernel_cpu_sse3_path_trace(&kg, render_buffer, rng_state,
-								sample, x, y, tile.offset, tile.stride);
-						}
-					}
-
-					tile.sample = sample + 1;
-
-					task.update_progress(tile);
+			for(int sample = start_sample; sample < end_sample; sample++) {
+				if (task.get_cancel() || task_pool.cancelled()) {
+					if(task.need_finish_queue == false)
+						break;
 				}
-			}
-			else if(system_cpu_support_sse2()) {
-				for(int sample = start_sample; sample < end_sample; sample++) {
-					if (task.get_cancel() || task_pool.cancelled()) {
-						if(task.need_finish_queue == false)
-							break;
+
+				for(int y = tile.y; y < tile.y + tile.h; y++) {
+					for(int x = tile.x; x < tile.x + tile.w; x++) {
+						path_trace_impl(&kg, render_buffer, rng_state,
+							sample, x, y, tile.offset, tile.stride);
 					}
-
-					for(int y = tile.y; y < tile.y + tile.h; y++) {
-						for(int x = tile.x; x < tile.x + tile.w; x++) {
-							kernel_cpu_sse2_path_trace(&kg, render_buffer, rng_state,
-								sample, x, y, tile.offset, tile.stride);
-						}
-					}
-
-					tile.sample = sample + 1;
-
-					task.update_progress(tile);
 				}
-			}
-			else
-#endif
-			{
-				for(int sample = start_sample; sample < end_sample; sample++) {
-					if (task.get_cancel() || task_pool.cancelled()) {
-						if(task.need_finish_queue == false)
-							break;
-					}
 
-					for(int y = tile.y; y < tile.y + tile.h; y++) {
-						for(int x = tile.x; x < tile.x + tile.w; x++) {
-							kernel_cpu_path_trace(&kg, render_buffer, rng_state,
-								sample, x, y, tile.offset, tile.stride);
-						}
-					}
+				tile.sample = sample + 1;
 
-					tile.sample = sample + 1;
-
-					task.update_progress(tile);
-				}
+				task.update_progress(tile);
 			}
 
 			task.release_tile(tile);
@@ -242,6 +217,18 @@ public:
 	void thread_tonemap(DeviceTask& task)
 	{
 #ifdef WITH_OPTIMIZED_KERNEL
+		if(system_cpu_support_avx1()) {
+			for(int y = task.y; y < task.y + task.h; y++)
+				for(int x = task.x; x < task.x + task.w; x++)
+					kernel_cpu_avx1_tonemap(&kernel_globals, (uchar4*)task.rgba, (float*)task.buffer,
+						task.sample, x, y, task.offset, task.stride);
+		}
+		if(system_cpu_support_sse4()) {
+			for(int y = task.y; y < task.y + task.h; y++)
+				for(int x = task.x; x < task.x + task.w; x++)
+					kernel_cpu_sse4_tonemap(&kernel_globals, (uchar4*)task.rgba, (float*)task.buffer,
+						task.sample, x, y, task.offset, task.stride);
+		}
 		if(system_cpu_support_sse3()) {
 			for(int y = task.y; y < task.y + task.h; y++)
 				for(int x = task.x; x < task.x + task.w; x++)

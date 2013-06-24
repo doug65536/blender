@@ -16,14 +16,18 @@ if(WIN32 AND MSVC)
 	# there is no /arch:SSE3, but intrinsics are available anyway
 	set(CYCLES_SSE2_KERNEL_FLAGS "/arch:SSE2 /fp:fast -D_CRT_SECURE_NO_WARNINGS /Gs-")
 	set(CYCLES_SSE3_KERNEL_FLAGS "/arch:SSE2 /fp:fast -D_CRT_SECURE_NO_WARNINGS /Gs-")
+	set(CYCLES_SSE4_KERNEL_FLAGS "/arch:SSE2 /fp:fast -D_CRT_SECURE_NO_WARNINGS /Gs-")
+	set(CYCLES_AVX1_KERNEL_FLAGS "/arch:AVX /fp:fast -D_CRT_SECURE_NO_WARNINGS /Gs-")
 
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /fp:fast -D_CRT_SECURE_NO_WARNINGS /Gs-")
 	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /Ox")
 	set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELEASE} /Ox")
 	set(CMAKE_CXX_FLAGS_MINSIZEREL "${CMAKE_CXX_FLAGS_RELEASE} /Ox")
 elseif(CMAKE_COMPILER_IS_GNUCC)
-	set(CYCLES_SSE2_KERNEL_FLAGS "-ffast-math -msse -msse2 -mfpmath=sse")
-	set(CYCLES_SSE3_KERNEL_FLAGS "-ffast-math -msse -msse2 -msse3 -mssse3 -mfpmath=sse")
+	set(CYCLES_SSE2_KERNEL_FLAGS "-ftree-vectorize -ftree-slp-vectorize -mrecip -ffast-math -msse -msse2 -mfpmath=sse")
+	set(CYCLES_SSE3_KERNEL_FLAGS "-ftree-vectorize -ftree-slp-vectorize -mrecip -ffast-math -msse -msse2 -msse3 -mssse3 -mfpmath=sse")
+	set(CYCLES_SSE4_KERNEL_FLAGS "-ftree-vectorize -ftree-slp-vectorize -mrecip -ffast-math -msse -msse2 -msse3 -mssse3 -msse4 -mfpmath=sse")
+	set(CYCLES_AVX1_KERNEL_FLAGS "-ftree-vectorize -ftree-slp-vectorize -mrecip -ffast-math -msse -msse2 -msse3 -mssse3 -msse4 -mavx -mfpmath=sse")
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ffast-math")
 endif()
 
@@ -64,7 +68,8 @@ include_directories(
 	${BOOST_INCLUDE_DIR}
 	${OPENIMAGEIO_INCLUDE_DIRS}
 	${OPENIMAGEIO_INCLUDE_DIRS}/OpenImageIO
-	${OPENEXR_INCLUDE_DIR})
+	${OPENEXR_INCLUDE_DIR}
+	${OPENEXR_INCLUDE_DIR}/..)
 
 # Subdirectories
 
@@ -83,4 +88,4 @@ add_subdirectory(kernel)
 add_subdirectory(render)
 add_subdirectory(subd)
 add_subdirectory(util)
-
+add_subdirectory(test)

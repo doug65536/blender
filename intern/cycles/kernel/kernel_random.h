@@ -104,10 +104,12 @@ __device uint sobol_lookup(const uint m, const uint frame, const uint ex, const 
 
 __device_inline float path_rng_1D(KernelGlobals *kg, RNG *rng, int sample, int num_samples, int dimension)
 {
+    RNG rng_tmp = *rng;
+
 #ifdef __CMJ__
 	if(kernel_data.integrator.sampling_pattern == SAMPLING_PATTERN_CMJ) {
 		/* correlated multi-jittered */
-		int p = *rng + dimension;
+        int p = rng_tmp + dimension;
 		return cmj_sample_1D(sample, num_samples, p);
 	}
 #endif
@@ -124,6 +126,7 @@ __device_inline float path_rng_1D(KernelGlobals *kg, RNG *rng, int sample, int n
 	/* Cranly-Patterson rotation using rng seed */
 	float shift;
 
+
 	if(dimension & 1)
 		shift = (*rng >> 16) * (1.0f/(float)0xFFFF);
 	else
@@ -138,14 +141,14 @@ __device_inline void path_rng_2D(KernelGlobals *kg, RNG *rng, int sample, int nu
 #ifdef __CMJ__
 	if(kernel_data.integrator.sampling_pattern == SAMPLING_PATTERN_CMJ) {
 		/* correlated multi-jittered */
-		int p = *rng + dimension;
+        int p = *rng + dimension;
 		cmj_sample_2D(sample, num_samples, p, fx, fy);
 	}
 #endif
 
 	/* sobol */
-	*fx = path_rng_1D(kg, rng, sample, num_samples, dimension);
-	*fy = path_rng_1D(kg, rng, sample, num_samples, dimension + 1);
+    *fx = path_rng_1D(kg, rng, sample, num_samples, dimension);
+    *fy = path_rng_1D(kg, rng, sample, num_samples, dimension + 1);
 }
 
 __device_inline void path_rng_init(KernelGlobals *kg, __global uint *rng_state, int sample, int num_samples, RNG *rng, int x, int y, float *fx, float *fy)
@@ -192,18 +195,20 @@ __device void path_rng_end(KernelGlobals *kg, __global uint *rng_state, RNG rng)
 
 /* Linear Congruential Generator */
 
-__device float path_rng(KernelGlobals *kg, RNG& rng, int sample, int dimension)
+__device float path_rng(KernelGlobals *kg, RNG *rng, int sample, int dimension)
 {
 }
 
-__device_inline float path_rng_1D(KernelGlobals *kg, RNG& rng, int sample, int num_samples, int dimension)
+__device_inline float path_rng_1D(KernelGlobals *kg, RNG *rng, int sample, int num_samples, int dimension)
 {
+    RNG tmp = *rng;
 	/* implicit mod 2^32 */
-	rng = (1103515245*(rng) + 12345);
-	return (float)rng * (1.0f/(float)0xFFFFFFFF);
+    tmp = (1103515245*(tmp) + 12345);
+    *rng = tmp;
+    return (float)tmp * (1.0f/(float)0xFFFFFFFF);
 }
 
-__device_inline void path_rng_2D(KernelGlobals *kg, RNG& rng, int sample, int num_samples, int dimension, float *fx, float *fy)
+__device_inline void path_rng_2D(KernelGlobals *kg, RNG *rng, int sample, int num_samples, int dimension, float *fx, float *fy)
 {
 	*fx = path_rng_1D(kg, rng, sample, num_samples, dimension);
 	*fy = path_rng_1D(kg, rng, sample, num_samples, dimension + 1);
@@ -235,9 +240,11 @@ __device void path_rng_end(KernelGlobals *kg, __global uint *rng_state, RNG rng)
 
 __device float lcg_step(uint *rng)
 {
+    uint tmp = *rng;
 	/* implicit mod 2^32 */
-	*rng = (1103515245*(*rng) + 12345);
-	return (float)*rng * (1.0f/(float)0xFFFFFFFF);
+    tmp = (1103515245*(tmp) + 12345);
+    *rng = tmp;
+    return (float)tmp * (1.0f/(float)0xFFFFFFFF);
 }
 
 __device uint lcg_init(uint seed)

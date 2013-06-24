@@ -302,7 +302,7 @@ void SubdAccBuilder::computeEdgeStencil(SubdFaceRing *ring, GregoryAccStencil *s
 			float sqrtterm = sqrtf(4.0f + costerm*costerm);
 
 			/* float tangentScale = 1.0f; */
-			float tangentScale = tangentScales[min(valence, 13U)];
+			float tangentScale = tangentScales[min(valence, 13)];
 
 			float alpha = (1.0f +  costerm / sqrtterm) / (3.0f * valence) * tangentScale;
 			float beta  = 1.0f / (3.0f * valence * sqrtterm) * tangentScale;

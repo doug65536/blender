@@ -63,7 +63,7 @@ char* getElbeemErrorString(void);
 #define DM_ERROR      5
 #define DM_DIRECT     6
 #define DM_FATAL      7
-void messageOutputFunc(string from, int id, string msg, myTime_t interval);
+void messageOutputFunc(const string &from, int id, const string &msg, myTime_t interval);
 
 /* debugging messages defines */
 #ifdef DEBUG 

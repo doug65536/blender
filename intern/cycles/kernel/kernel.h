@@ -57,6 +57,20 @@ void kernel_cpu_sse3_tonemap(KernelGlobals *kg, uchar4 *rgba, float *buffer,
 	int sample, int x, int y, int offset, int stride);
 void kernel_cpu_sse3_shader(KernelGlobals *kg, uint4 *input, float4 *output,
 	int type, int i);
+
+void kernel_cpu_sse4_path_trace(KernelGlobals *kg, float *buffer, unsigned int *rng_state,
+	int sample, int x, int y, int offset, int stride);
+void kernel_cpu_sse4_tonemap(KernelGlobals *kg, uchar4 *rgba, float *buffer,
+	int sample, int x, int y, int offset, int stride);
+void kernel_cpu_sse4_shader(KernelGlobals *kg, uint4 *input, float4 *output,
+	int type, int i);
+
+void kernel_cpu_avx1_path_trace(KernelGlobals *kg, float *buffer, unsigned int *rng_state,
+	int sample, int x, int y, int offset, int stride);
+void kernel_cpu_avx1_tonemap(KernelGlobals *kg, uchar4 *rgba, float *buffer,
+	int sample, int x, int y, int offset, int stride);
+void kernel_cpu_avx1_shader(KernelGlobals *kg, uint4 *input, float4 *output,
+	int type, int i);
 #endif
 
 CCL_NAMESPACE_END

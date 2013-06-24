@@ -54,7 +54,8 @@ protected:
 	/* computes the bin numbers for each dimension for a box. */
 	__forceinline int4 get_bin(const BoundBox& box) const
 	{
-		int4 a = make_int4((box.center2() - cent_bounds().min)*scale - make_float3(0.5f));
+		float4 fa = make_float4((box.center2() - cent_bounds().min)*scale - make_float3(0.5f), 0.0f);
+		int4 a = convert_int4(fa);
 		int4 mn = make_int4(0);
 		int4 mx = make_int4((int)num_bins-1);
 
@@ -64,7 +65,8 @@ protected:
 	/* computes the bin numbers for each dimension for a point. */
 	__forceinline int4 get_bin(const float3& c) const
 	{
-		return make_int4((c - cent_bounds().min)*scale - make_float3(0.5f));
+		float4 f = make_float4((c - cent_bounds().min)*scale - make_float3(0.5f), 0);
+		return convert_int4(f);
 	}
 
 	/* compute the number of blocks occupied for each dimension. */

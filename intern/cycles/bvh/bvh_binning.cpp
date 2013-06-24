@@ -34,11 +34,6 @@ __forceinline void prefetch_L2 (const void* ptr) { }
 __forceinline void prefetch_L3 (const void* ptr) { }
 __forceinline void prefetch_NTA(const void* ptr) { }
 
-template<size_t src> __forceinline float extract(const int4& b)
-{ return b[src]; }
-template<size_t dst> __forceinline const float4 insert(const float4& a, const float b)
-{ float4 r = a; r[dst] = b; return r; }
-
 __forceinline int get_best_dimension(const float4& bestSAH)
 {
 	// return (int)__bsf(movemask(reduce_min(bestSAH) == bestSAH));
@@ -147,12 +142,17 @@ BVHObjectBinning::BVHObjectBinning(const BVHRange& job, BVHReference *prims)
 		float4 lArea = make_float4(Ax,Ay,Az,Az);
 		float4 sah = lArea*lCount + r_area[i]*r_count[i];
 
-		bestSplit = select(sah < bestSAH,ii,bestSplit);
+		bestSplit = mask_select(sah < bestSAH, ii, bestSplit);
 		bestSAH = min(sah,bestSAH);
 	}
 
+	/* make mask for elements of bounds that are <= 0.0f */
 	int4 mask = float3_to_float4(cent_bounds().size()) <= make_float4(0.0f);
-	bestSAH = insert<3>(select(mask, make_float4(FLT_MAX), bestSAH), FLT_MAX);
+
+	/* make elements with 0 bounds = FLT_MAX */
+	bestSAH = mask_select(mask, make_float4(FLT_MAX), bestSAH);
+
+	bestSAH = insert<3>(bestSAH, FLT_MAX);
 
 	/* find best dimension */
 	dim = get_best_dimension(bestSAH);

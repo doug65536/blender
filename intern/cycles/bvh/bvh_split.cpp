@@ -101,6 +101,8 @@ BVHSpatialSplit::BVHSpatialSplit(BVHBuild *builder, const BVHRange& range, float
 		}
 	}
 
+	int3 num_spacial_bins_m1 = make_int3(BVHParams::NUM_SPATIAL_BINS - 1);
+
 	/* chop references into bins. */
 	for(unsigned int refIdx = range.start(); refIdx < range.end(); refIdx++) {
 		const BVHReference& ref = builder->references[refIdx];
@@ -109,8 +111,8 @@ BVHSpatialSplit::BVHSpatialSplit(BVHBuild *builder, const BVHRange& range, float
 		int3 firstBin = make_int3((int)firstBinf.x, (int)firstBinf.y, (int)firstBinf.z);
 		int3 lastBin = make_int3((int)lastBinf.x, (int)lastBinf.y, (int)lastBinf.z);
 
-		firstBin = clamp(firstBin, 0, BVHParams::NUM_SPATIAL_BINS - 1);
-		lastBin = clamp(lastBin, firstBin, BVHParams::NUM_SPATIAL_BINS - 1);
+		firstBin = clamp(firstBin, make_int3(0), num_spacial_bins_m1);
+		lastBin = clamp(lastBin, firstBin, num_spacial_bins_m1);
 
 		for(int dim = 0; dim < 3; dim++) {
 			BVHReference currRef = ref;

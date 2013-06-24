@@ -29,6 +29,14 @@
  *
  */
 
+#define ENABLE_TRACE_BVH_INTERSECT
+
+#ifdef ENABLE_TRACE_BVH_INTERSECT
+#define TRACE_BVH_INTERSECT(...) printf(__VA_ARGS__)
+#else
+#define TRACE_BVH_INTERSECT(...) ((void)0)
+#endif
+
 #define FEATURE(f) (((BVH_FUNCTION_FEATURES) & (f)) != 0)
 
 __device bool BVH_FUNCTION_NAME
@@ -104,11 +112,9 @@ __device bool BVH_FUNCTION_NAME
 
 	/* traversal loop */
 	do {
-		do
-		{
+		do {
 			/* traverse internal nodes */
-			while(nodeAddr >= 0 && nodeAddr != ENTRYPOINT_SENTINEL)
-			{
+			while(nodeAddr >= 0 && nodeAddr != ENTRYPOINT_SENTINEL) {
 				bool traverseChild0, traverseChild1;
 				int nodeAddrChild1;
 
@@ -212,6 +218,7 @@ __device bool BVH_FUNCTION_NAME
 					}
 
 					++stackPtr;
+					assert(stackPtr < BVH_STACK_SIZE);
 					traversalStack[stackPtr] = nodeAddrChild1;
 				}
 				else {
@@ -221,6 +228,7 @@ __device bool BVH_FUNCTION_NAME
 					}
 					else if(!traverseChild0) {
 						/* neither child was intersected */
+						assert(stackPtr >= 0);
 						nodeAddr = traversalStack[stackPtr];
 						--stackPtr;
 					}
@@ -236,6 +244,8 @@ __device bool BVH_FUNCTION_NAME
 				if(primAddr >= 0) {
 #endif
 					int primAddr2 = __float_as_int(leaf.y);
+
+					TRACE_BVH_INTERSECT("Leaf with %d primitives\n", primAddr2 - primAddr);
 
 					/* pop */
 					nodeAddr = traversalStack[stackPtr];
@@ -283,7 +293,7 @@ __device bool BVH_FUNCTION_NAME
 
 						}
 #else
-								hit = bvh_triangle_intersect(kg, isect, P, idir, visibility, object, primAddr);
+							hit = bvh_triangle_intersect(kg, isect, P, idir, visibility, object, primAddr);
 
 							/* shadow ray early termination */
 #if defined(__KERNEL_SSE2__) && !FEATURE(BVH_HAIR_MINIMUM_WIDTH)
@@ -294,8 +304,10 @@ __device bool BVH_FUNCTION_NAME
 								tsplat = _mm_set_ps(-isect->t, -isect->t, 0.0f, 0.0f);
 							}
 #else
-							if(hit && visibility == PATH_RAY_SHADOW_OPAQUE)
+							if(hit && visibility == PATH_RAY_SHADOW_OPAQUE) {
+								TRACE_BVH_INTERSECT("Returning: hit && visibility == PATH_RAY_SHADOW_OPAQUE\n");
 								return true;
+							}
 #endif
 
 #endif
@@ -352,6 +364,8 @@ __device bool BVH_FUNCTION_NAME
 #endif
 		} while(nodeAddr != ENTRYPOINT_SENTINEL);
 
+		TRACE_BVH_INTERSECT("Done internal nodes loop\n");
+
 #if FEATURE(BVH_INSTANCING)
 		if(stackPtr >= 0) {
 			kernel_assert(object != ~0);
@@ -387,8 +401,10 @@ __device bool BVH_FUNCTION_NAME
 	} while(nodeAddr != ENTRYPOINT_SENTINEL);
 
 #if FEATURE(BVH_SUBSURFACE)
+	TRACE_BVH_INTERSECT("Done (subsurface), hits = %d\n", num_hits);
 	return (num_hits != 0);
 #else
+	TRACE_BVH_INTERSECT("Done (non-subsurface), returns %s\n", (isect->prim != ~0) ? "true" : "false");
 	return (isect->prim != ~0);
 #endif
 }

@@ -14,6 +14,8 @@ set(SRC
 	kernel.cpp
 	kernel_sse2.cpp
 	kernel_sse3.cpp
+	kernel_sse4.cpp
+	kernel_sseavx1.cpp
 	kernel.cl
 	kernel.cu
 )
@@ -209,6 +211,8 @@ add_library(cycles_kernel ${SRC} ${SRC_HEADERS} ${SRC_CLOSURE_HEADERS} ${SRC_SVM
 if(WITH_CYCLES_OPTIMIZED_KERNEL)
 	set_source_files_properties(kernel_sse2.cpp PROPERTIES COMPILE_FLAGS "${CYCLES_SSE2_KERNEL_FLAGS}")
 	set_source_files_properties(kernel_sse3.cpp PROPERTIES COMPILE_FLAGS "${CYCLES_SSE3_KERNEL_FLAGS}")
+	set_source_files_properties(kernel_sse4.cpp PROPERTIES COMPILE_FLAGS "${CYCLES_SSE4_KERNEL_FLAGS}")
+	set_source_files_properties(kernel_sseavx1.cpp PROPERTIES COMPILE_FLAGS "${CYCLES_AVX1_KERNEL_FLAGS}")
 endif()
 
 if(WITH_CYCLES_CUDA)

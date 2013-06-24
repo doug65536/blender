@@ -25,6 +25,7 @@
 #define __KERNEL_SSE__
 #define __KERNEL_SSE3__
 #define __KERNEL_SSSE3__
+#define __KERNEL_SSE4__
 
 #include "kernel.h"
 #include "kernel_compat_cpu.h"
@@ -39,21 +40,21 @@ CCL_NAMESPACE_BEGIN
 
 /* Path Tracing */
 
-void kernel_cpu_sse3_path_trace(KernelGlobals *kg, float *buffer, unsigned int *rng_state, int sample, int x, int y, int offset, int stride)
+void kernel_cpu_sse4_path_trace(KernelGlobals *kg, float *buffer, unsigned int *rng_state, int sample, int x, int y, int offset, int stride)
 {
 	kernel_path_trace(kg, buffer, rng_state, sample, x, y, offset, stride);
 }
 
 /* Tonemapping */
 
-void kernel_cpu_sse3_tonemap(KernelGlobals *kg, uchar4 *rgba, float *buffer, int sample, int x, int y, int offset, int stride)
+void kernel_cpu_sse4_tonemap(KernelGlobals *kg, uchar4 *rgba, float *buffer, int sample, int x, int y, int offset, int stride)
 {
 	kernel_film_tonemap(kg, rgba, buffer, sample, x, y, offset, stride);
 }
 
 /* Shader Evaluate */
 
-void kernel_cpu_sse3_shader(KernelGlobals *kg, uint4 *input, float4 *output, int type, int i)
+void kernel_cpu_sse4_shader(KernelGlobals *kg, uint4 *input, float4 *output, int type, int i)
 {
 	kernel_shader_evaluate(kg, input, output, (ShaderEvalType)type, i);
 }

@@ -37,7 +37,7 @@ CCL_NAMESPACE_BEGIN
  * pointer lookup. */
 
 template<typename T> struct texture  {
-	T fetch(int index)
+	__forceinline T fetch(int index)
 	{
 		kernel_assert(index >= 0 && index < width);
 		return data[index];
@@ -62,20 +62,22 @@ template<typename T> struct texture  {
 };
 
 template<typename T> struct texture_image  {
-	float4 read(float4 r)
+	__forceinline float4 read(float4 r)
 	{
 		return r;
 	}
 
-	float4 read(uchar4 r)
+	__forceinline float4 read(uchar4 r)
 	{
-		float f = 1.0f/255.0f;
-		return make_float4(r.x*f, r.y*f, r.z*f, r.w*f);
+		float4 rcpf = make_float4(1.0f/255.0f);
+		float4 color = convert_float4(r);
+		return color * rcpf;
 	}
 
 	int wrap_periodic(int x, int width)
 	{
-		x %= width;
+		if (x >= width)
+			x %= width;
 		if(x < 0)
 			x += width;
 		return x;

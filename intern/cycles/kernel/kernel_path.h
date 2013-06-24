@@ -297,7 +297,7 @@ __device float4 kernel_path_progressive(KernelGlobals *kg, RNG *rng, int sample,
 			light_ray.dP = ray.dP;
 
 			/* intersect with lamp */
-			float light_t = path_rng_1D(kg, rng, sample, num_samples, rng_offset + PRNG_LIGHT);
+            float light_t = path_rng_1D(kg, rng, sample, num_samples, rng_offset + PRNG_LIGHT);
 			float3 emission;
 
 			if(indirect_lamp_emission(kg, &light_ray, state.flag, ray_pdf, light_t, &emission))
@@ -328,7 +328,7 @@ __device float4 kernel_path_progressive(KernelGlobals *kg, RNG *rng, int sample,
 		/* setup shading */
 		ShaderData sd;
 		shader_setup_from_ray(kg, &sd, &isect, &ray);
-		float rbsdf = path_rng_1D(kg, rng, sample, num_samples, rng_offset + PRNG_BSDF);
+        float rbsdf = path_rng_1D(kg, rng, sample, num_samples, rng_offset + PRNG_BSDF);
 		shader_eval_surface(kg, &sd, rbsdf, state.flag, SHADER_CONTEXT_MAIN);
 
 		/* holdout */
@@ -379,7 +379,7 @@ __device float4 kernel_path_progressive(KernelGlobals *kg, RNG *rng, int sample,
 		 * shader evaluations, only need emission if we are going to terminate */
 		float probability = path_state_terminate_probability(kg, &state, throughput);
 
-		if(probability == 0.0f) {
+        if(probability <= 1.0e-9f) {
 			break;
 		}
 		else if(probability != 1.0f) {
@@ -388,7 +388,8 @@ __device float4 kernel_path_progressive(KernelGlobals *kg, RNG *rng, int sample,
 			if(terminate >= probability)
 				break;
 
-			throughput /= probability;
+            float invprob = 1.0f / probability;
+            throughput *= invprob;
 		}
 
 #ifdef __SUBSURFACE__
