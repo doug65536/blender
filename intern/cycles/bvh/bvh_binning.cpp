@@ -29,7 +29,7 @@ CCL_NAMESPACE_BEGIN
 
 #define ENABLE_TRACE_BIN
 #ifdef ENABLE_TRACE_BIN
-#define TRACE_BIN(...) printf("TRACE_BIN: " __VA_ARGS__)
+#define TRACE_BIN(...) printf(__VA_ARGS__)
 #else
 #define TRACE_BIN(...) ((void)0)
 #endif
@@ -101,6 +101,8 @@ BVHObjectBinning::BVHObjectBinning(const BVHRange& job, BVHReference *prims)
 			int b10 = extract<0>(bin1); bin_count[b10][0]++; bin_bounds[b10][0].grow(prim1.bounds());
 			int b11 = extract<1>(bin1); bin_count[b11][1]++; bin_bounds[b11][1].grow(prim1.bounds());
 			int b12 = extract<2>(bin1); bin_count[b12][2]++; bin_bounds[b12][2].grow(prim1.bounds());
+
+			TRACE_BIN("b00:%d b01:%d b02:%d b10:%d b11:%d b12:%d\n", b00, b01, b02, b10, b11, b12);
 		}
 
 		/* for uneven number of primitives */
@@ -113,6 +115,7 @@ BVHObjectBinning::BVHObjectBinning(const BVHRange& job, BVHReference *prims)
 			int b00 = extract<0>(bin0); bin_count[b00][0]++; bin_bounds[b00][0].grow(prim0.bounds());
 			int b01 = extract<1>(bin0); bin_count[b01][1]++; bin_bounds[b01][1].grow(prim0.bounds());
 			int b02 = extract<2>(bin0); bin_count[b02][2]++; bin_bounds[b02][2].grow(prim0.bounds());
+			TRACE_BIN("b00:%d b01:%d b02:%d\n", b00, b01, b02);
 		}
 	}
 
@@ -169,6 +172,8 @@ BVHObjectBinning::BVHObjectBinning(const BVHRange& job, BVHReference *prims)
 	splitSAH = bestSAH[dim];
 	pos = bestSplit[dim];
 	leafSAH	= bounds().half_area() * blocks(size());
+
+	TRACE_BIN("leafSAH = %.1g\n", leafSAH);
 }
 
 void BVHObjectBinning::split(BVHReference* prims, BVHObjectBinning& left_o, BVHObjectBinning& right_o) const
