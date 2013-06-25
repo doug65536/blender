@@ -27,6 +27,13 @@
 
 CCL_NAMESPACE_BEGIN
 
+#define ENABLE_TRACE_BIN
+#ifdef ENABLE_TRACE_BIN
+#define TRACE_BIN(...) printf("TRACE_BIN: " __VA_ARGS__)
+#else
+#define TRACE_BIN(...) ((void)0)
+#endif
+
 /* SSE replacements */
 
 __forceinline void prefetch_L1 (const void* ptr) { }
@@ -58,6 +65,9 @@ BVHObjectBinning::BVHObjectBinning(const BVHRange& job, BVHReference *prims)
 	/* compute number of bins to use and precompute scaling factor for binning */
 	num_bins = min(size_t(MAX_BINS), size_t(4.0f + 0.05f*size()));
 	scale = rcp(cent_bounds().size()) * make_float3((float)num_bins);
+
+	TRACE_BIN("num_bins = %d\n", (int)num_bins);
+	TRACE_BIN("scale = %.1e,%.1e,%.1e\n", scale);
 
 	/* initialize binning counter and bounds */
 	BoundBox bin_bounds[MAX_BINS][4];	/* bounds for every bin in every dimension */
