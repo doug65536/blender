@@ -159,10 +159,10 @@ BVHObjectBinning::BVHObjectBinning(const BVHRange& job, BVHReference *prims)
 		bestSAH = min(sah,bestSAH);
 	}
 
-	/* make mask for elements of bounds that are <= 0.0f */
+	/* make mask for elements of cent_bounds.size() that are <= 0.0f */
 	int4 mask = float3_to_float4(cent_bounds().size()) <= make_float4(0.0f);
 
-	/* make elements with 0 bounds = FLT_MAX */
+	/* make elements with <= 0.0f bound size = FLT_MAX */
 	bestSAH = mask_select(mask, make_float4(FLT_MAX), bestSAH);
 
 	bestSAH = insert<3>(bestSAH, FLT_MAX);

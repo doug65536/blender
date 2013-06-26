@@ -28,57 +28,77 @@
 #include <iostream>
 #include <sstream>
 #include <iomanip>
+#include <limits>
+#include <signal.h>
 
 CCL_NAMESPACE_BEGIN
 
 extern bool verbose;
 extern bool failed;
 
-template<typename T>
-static void assert_check_value(const char *func_name, const char *file, int line, const char *expr, T expect, T actual)
+template<typename T, typename U>
+static void assert_check_value(const char *func_name, const char *file, int line, const char *expr, const U& expect, const T& actual)
 {
-	if (expect != actual) {
-		std::cerr << "***" << func_name << " FAILED. " << file << ":" << line << std::endl <<
-			"  Expected: " << expr << "==" << expect << std::endl <<
-			"    Actual: " << actual << std::endl;
-		failed = true;
-	} else if (verbose) {
-		std::cout << func_name << " PASSED at " << file << ':' << line << std::endl;
+	if (std::numeric_limits<T>::is_integer) {
+		if (expect == actual) {
+			if (verbose)
+				std::cout << func_name << " PASSED at " << file << ':' << line << std::endl;
+			return;
+		}
+
+		if (!std::numeric_limits<T>::is_signed) {
+			/* expand to unsigned so uchar won't be printed as a number, not a character */
+			std::cerr << "***" << func_name << " FAILED. " << file << ":" << line << std::endl <<
+				"  Expected: " << expr << "==" << (unsigned)expect << std::endl <<
+				"    Actual: " << (unsigned)actual << std::endl;
+		}
+		else {
+			/* expand to int so char won't be printed as a number, not a character */
+			std::cerr << "***" << func_name << " FAILED. " << file << ":" << line << std::endl <<
+				"  Expected: " << expr << "==" << (int)expect << std::endl <<
+				"    Actual: " << (int)actual << std::endl;
+		}
 	}
-}
+	else {
+		/* convert to limited precision scientific notation strings to do approximate equality */
+		std::string expect_str, actual_str;
+		std::stringstream ss;
+		ss << std::scientific << std::setprecision(2) << (T)expect;
+		expect_str = ss.str();
 
-// Overload to handle approximate comparisons
-static void assert_check_value(const char *func_name, const char *file, int line, const char *expr, float expect, float actual)
-{
-	std::string expect_str, actual_str;
-	std::stringstream ss;
-	ss << std::scientific << std::setprecision(2) << expect;
-	expect_str = ss.str();
+		ss.str(std::string());
+		ss << std::scientific << std::setprecision(2) << actual;
+		actual_str = ss.str();
 
-	ss.str(std::string());
-	ss << std::scientific << std::setprecision(2) << actual;
-	actual_str = ss.str();
+		if (expect_str == actual_str) {
+			if (verbose)
+				std::cout << func_name << " PASSED at " << file << ':' << line << std::endl;
+			return;
+		}
 
-	if (expect_str != actual_str) {
 		std::cerr << "***" << func_name << " FAILED. " << file << ":" << line << std::endl <<
 			"  Expected: " << expr << "==" << std::scientific << expect << std::endl <<
 			"    Actual: " << std::scientific << actual << std::endl;
-		failed = true;
-	} else if (verbose) {
-		std::cout << func_name << " PASSED" << std::endl;
 	}
+
+	failed = true;
+
+	/* break into debugger if debug build */
+#ifndef NDEBUG
+	raise(SIGTRAP);
+#endif
 }
 
 #if defined _MSC_VER
 #define test_assert_equal(expr, expect) \
-	assert_check_value(__FUNCDNAME__, __FILE__, __LINE__, #expr, expect, (expr))
+	assert_check_value(__FUNCDNAME__, __FILE__, __LINE__, #expr, (expect), (expr))
 #elif defined __GNUC__
 #define test_assert_equal(expr, expect) \
-	assert_check_value(__FUNCTION__, __FILE__, __LINE__, #expr, expect, (expr))
+	assert_check_value(__FUNCTION__, __FILE__, __LINE__, #expr, (expect), (expr))
 #else
 /* don't know how to get function name on this compiler */
 #define test_assert_equal(expr, expect) \
-	assert_check_value("", __FILE__, __LINE__, #expr, expect, (expr))
+	assert_check_value("", __FILE__, __LINE__, #expr, (expect), (expr))
 #endif
 
 /* each generated test can check whether the type is integer (non-float) or unsigned */

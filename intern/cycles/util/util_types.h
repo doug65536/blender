@@ -834,14 +834,19 @@ __device_inline uint2 mask_select(const uint2& mask, const uint2& true_val, cons
 }
 
 /* select uint3 */
-/* FIXME: SSE optimize */
 __device_inline uint3 mask_select(const uint3& mask, const uint3& true_val, const uint3& false_val)
 {
+#ifdef __KERNEL_SSE__
+	__m128i true_parts = _mm_and_si128(mask, true_val);
+	__m128i false_parts = _mm_andnot_si128(mask, false_val);
+	return _mm_or_si128(true_parts, false_parts);
+#else
 	uint3 r;
 	r.x = mask.x ? true_val.x : false_val.x;
 	r.y = mask.y ? true_val.y : false_val.y;
 	r.z = mask.z ? true_val.z : false_val.z;
 	return r;
+#endif
 }
 
 /* select uint4 */
@@ -1213,6 +1218,124 @@ __forceinline float extract<0>(const float4& b)
 #endif
 }
 
+/* uchar2 insert */
+
+template<int elem>
+__forceinline uchar2 insert(const uchar2 a, uchar b)
+{
+	assert(elem >= 0 && elem < 2);
+	uchar2 r(a);
+	r[elem] = b;
+	return r;
+}
+
+/* uchar3 insert */
+
+template<int elem>
+__forceinline uchar3 insert(const uchar3 a, uchar b)
+{
+	assert(elem >= 0 && elem < 3);
+	uchar3 r(a);
+	r[elem] = b;
+	return r;
+}
+
+/* uchar4 insert */
+
+template<int elem>
+__forceinline uchar4 insert(const uchar4 a, uchar b)
+{
+	assert(elem >= 0 && elem < 4);
+	uchar4 r(a);
+	r[elem] = b;
+	return r;
+}
+
+/* uint2 insert */
+
+template<int elem>
+__forceinline uint2 insert(const uint2 a, uint b)
+{
+	assert(elem >= 0 && elem < 2);
+	uint2 r(a);
+	r[elem] = b;
+	return r;
+}
+
+/* uint3 insert */
+
+template<int elem>
+__forceinline uint3 insert(const uint3 a, uint b)
+{
+	assert(elem >= 0 && elem < 3);
+	uint3 r(a);
+	r[elem] = b;
+	return r;
+}
+
+/* uint4 insert */
+
+template<int elem>
+__forceinline uint4 insert(const uint4 a, uint b)
+{
+	assert(elem >= 0 && elem < 4);
+	uint4 r(a);
+	r[elem] = b;
+	return r;
+}
+
+/* int2 insert */
+
+template<int elem>
+__forceinline int2 insert(const int2 a, int b)
+{
+	assert(elem >= 0 && elem < 2);
+	int2 r(a);
+	r[elem] = b;
+	return r;
+}
+
+/* int3 insert */
+
+template<int elem>
+__forceinline int3 insert(const int3 a, int b)
+{
+	assert(elem >= 0 && elem < 3);
+#ifdef __KERNEL_SSE4__
+	return _mm_insert_epi32(a, b, elem);
+#elif defined __KERNEL_SSE__
+	/* build register with value in desired element */
+	__m128i value = _mm_cvtsi32_si128(b);
+	value = _mm_shuffle_epi32(value, _MM_SHUFFLE(
+			1,
+			elem != 2 ? 1 : 0,
+			elem != 1 ? 1 : 0,
+			elem != 0 ? 1 : 0));
+
+	/* build mask with 0xFFFFFFFF in desired element */
+	__m128i mask = _mm_cvtsi32_si128(0xFFFFFFFF);
+	mask = _mm_shuffle_epi32(mask, _MM_SHUFFLE(
+			1,
+			elem != 2 ? 1 : 0,
+			elem != 1 ? 1 : 0,
+			elem != 0 ? 1 : 0));
+
+	/* clear target element */
+	__m128i t = _mm_andnot_si128(mask, a);
+
+	/* put value into register */
+	t = _mm_or_si128(t, value);
+
+	return t;
+#else
+	int3 t(a);
+	t[elem] = b;
+	return t;
+#endif
+}
+
+/* int4 insert */
+
 template<int elem>
 __forceinline int4 insert(const int4 a, int b)
 {
@@ -1223,18 +1346,18 @@ __forceinline int4 insert(const int4 a, int b)
 	/* build register with value in desired element */
 	__m128i value = _mm_cvtsi32_si128(b);
 	value = _mm_shuffle_epi32(value, _MM_SHUFFLE(
-			elem != 0 ? 1 : 0,
-			elem != 1 ? 1 : 0,
+			elem != 3 ? 1 : 0,
 			elem != 2 ? 1 : 0,
-			elem != 3 ? 1 : 0));
+			elem != 1 ? 1 : 0,
+			elem != 0 ? 1 : 0));
 
 	/* build mask with 0xFFFFFFFF in desired element */
 	__m128i mask = _mm_cvtsi32_si128(0xFFFFFFFF);
 	mask = _mm_shuffle_epi32(mask, _MM_SHUFFLE(
-			elem != 0 ? 1 : 0,
-			elem != 1 ? 1 : 0,
+			elem != 3 ? 1 : 0,
 			elem != 2 ? 1 : 0,
-			elem != 3 ? 1 : 0));
+			elem != 1 ? 1 : 0,
+			elem != 0 ? 1 : 0));
 
 	/* clear target element */
 	__m128i t = _mm_andnot_si128(mask, a);
@@ -1250,44 +1373,21 @@ __forceinline int4 insert(const int4 a, int b)
 #endif
 }
 
+/* float2 insert */
+
 template<int elem>
-__forceinline int3 insert(const int3 a, int b)
+__forceinline float2 insert(const float2 a, float b)
 {
-	assert(elem >= 0 && elem < 3);
-#ifdef __KERNEL_SSE4__
-	return _mm_insert_epi32(a, b, elem);
-#elif defined __KERNEL_SSE__
-	/* build register with value in desired element */
-	__m128i value = _mm_cvtsi32_si128(b);
-	value = _mm_shuffle_epi32(value, _MM_SHUFFLE(
-			elem != 0 ? 1 : 0,
-			elem != 1 ? 1 : 0,
-			elem != 2 ? 1 : 0,
-			elem != 3 ? 1 : 0));
-
-	/* build mask with 0xFFFFFFFF in desired element */
-	__m128i mask = _mm_cvtsi32_si128(0xFFFFFFFF);
-	mask = _mm_shuffle_epi32(mask, _MM_SHUFFLE(
-			elem != 0 ? 1 : 0,
-			elem != 1 ? 1 : 0,
-			elem != 2 ? 1 : 0,
-			elem != 3 ? 1 : 0));
-
-	/* clear target element */
-	__m128i t = _mm_andnot_si128(a, mask);
-
-	/* put value into register */
-	t = _mm_or_si128(t, value);
-	return t;
-#else
-	int3 t(a);
-	t[elem] = b;
-	return t;
-#endif
+	assert(elem >= 0 && elem < 2);
+	float2 r(a);
+	r[elem] = b;
+	return r;
 }
 
+/* float3 insert */
+
 template<int elem>
-__forceinline float4 insert(const float4& a, float b)
+__forceinline float3 insert(const float3 a, float b)
 {
 	assert(elem >= 0 && elem < 4);
 #ifdef __KERNEL_SSE4__
@@ -1296,18 +1396,53 @@ __forceinline float4 insert(const float4& a, float b)
 	/* build register with value in desired element */
 	__m128 value = _mm_set_ss(b);
 	value = _mm_shuffle_ps(value, value, _MM_SHUFFLE(
-			elem != 0 ? 1 : 0,
-			elem != 1 ? 1 : 0,
+			1,
 			elem != 2 ? 1 : 0,
-			elem != 3 ? 1 : 0));
+			elem != 1 ? 1 : 0,
+			elem != 0 ? 1 : 0));
 
 	/* build mask with 0xFFFFFFFF in desired element */
 	__m128 mask = _mm_castsi128_ps(_mm_cvtsi32_si128(0xFFFFFFFF));
 	mask = _mm_shuffle_ps(mask, mask, _MM_SHUFFLE(
-			elem != 0 ? 1 : 0,
-			elem != 1 ? 1 : 0,
+			1,
 			elem != 2 ? 1 : 0,
-			elem != 3 ? 1 : 0));
+			elem != 1 ? 1 : 0,
+			elem != 0 ? 1 : 0));
+
+	/* clear target element */
+	__m128 t = _mm_andnot_ps(mask, a);
+
+	/* put value into register */
+	return _mm_or_ps(t, value);
+#else
+	float3 t(a);
+	t[elem] = b;
+	return t;
+#endif
+}
+
+template<int elem>
+__forceinline float4 insert(const float4 a, float b)
+{
+	assert(elem >= 0 && elem < 4);
+#ifdef __KERNEL_SSE4__
+	return _mm_insert_ps(a, _mm_set_ss(b), elem << 4);
+#elif defined __KERNEL_SSE__
+	/* build register with value in desired element */
+	__m128 value = _mm_set_ss(b);
+	value = _mm_shuffle_ps(value, value, _MM_SHUFFLE(
+			elem != 3 ? 1 : 0,
+			elem != 2 ? 1 : 0,
+			elem != 1 ? 1 : 0,
+			elem != 0 ? 1 : 0));
+
+	/* build mask with 0xFFFFFFFF in desired element */
+	__m128 mask = _mm_castsi128_ps(_mm_cvtsi32_si128(0xFFFFFFFF));
+	mask = _mm_shuffle_ps(mask, mask, _MM_SHUFFLE(
+			elem != 3 ? 1 : 0,
+			elem != 2 ? 1 : 0,
+			elem != 1 ? 1 : 0,
+			elem != 0 ? 1 : 0));
 
 	/* clear target element */
 	__m128 t = _mm_andnot_ps(mask, a);
@@ -1317,41 +1452,6 @@ __forceinline float4 insert(const float4& a, float b)
 #else
 	float4 t(a);
 	t[elem] = b;
-	return t;
-#endif
-}
-
-template<int elem>
-__forceinline float3 &insert(float3& a, float b)
-{
-	assert(elem >= 0 && elem < 3);
-#ifdef __KERNEL_SSE4__
-	a = _mm_insert_ps(a, _mm_set_ss(b), elem << 4);
-#elif defined __KERNEL_SSE__
-	/* build register with value in desired element */
-	__m128 value = _mm_set_ss(b);
-	value = _mm_shuffle_ps(value, value, _MM_SHUFFLE(
-			elem != 0 ? 1 : 0,
-			elem != 1 ? 1 : 0,
-			elem != 2 ? 1 : 0,
-			elem != 3 ? 1 : 0));
-
-	/* build mask with 0xFFFFFFFF in desired element */
-	__m128 mask = _mm_castsi128_ps(_mm_cvtsi32_si128(0xFFFFFFFF));
-	mask = _mm_shuffle_ps(mask, mask, _MM_SHUFFLE(
-			elem != 0 ? 1 : 0,
-			elem != 1 ? 1 : 0,
-			elem != 2 ? 1 : 0,
-			elem != 3 ? 1 : 0));
-
-	/* clear target element */
-	a = _mm_andnot_ps(mask, a);
-
-	/* put value into register */
-	a = _mm_or_ps(a, value);
-#else
-	float3 t(a);
-	a[elem] = b;
 	return t;
 #endif
 }

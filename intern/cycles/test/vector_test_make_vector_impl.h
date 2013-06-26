@@ -87,23 +87,17 @@
 #undef VERIFY_Z
 #undef VERIFY_W
 
-#define VERIFY_X(vec,value) test_assert_equal(vec .x, (VECTOR_TYPE)value)
-#define VERIFY_Y(vec,value) test_assert_equal(vec .y, (VECTOR_TYPE)value)
+#define VERIFY_X(vec,value) test_assert_equal(vec.x, (value))
+#define VERIFY_Y(vec,value) test_assert_equal(vec.y, (value))
 
 #if VECTOR_SIZE > 2
-#define VERIFY_Z(vec,value) test_assert_equal(vec .z, (VECTOR_TYPE)value)
+#define VERIFY_Z(vec,value) test_assert_equal(vec.z, (value))
 #else
 #define VERIFY_Z(vec,value) (void)0
 #endif
 
 #if VECTOR_SIZE > 3
-#define VERIFY_W(vec,value) test_assert_equal(vec .w, (VECTOR_TYPE)(value));
-#else
-#define VERIFY_W(vec,value) (void)0
-#endif
-
-#if VECTOR_SIZE > 3
-#define VERIFY_W(vec,value) test_assert_equal(vec .w, (VECTOR_TYPE)(value));
+#define VERIFY_W(vec,value) test_assert_equal(vec.w, (value))
 #else
 #define VERIFY_W(vec,value) (void)0
 #endif
@@ -135,7 +129,22 @@ TEST_FUNCTION(neg)
 	VECTOR_TYPE_NAME n0 = MAKE_VECTOR_FUNCTION MAKE_VECTOR_PARAMS(2, 3, 4, 5);
 	VECTOR_TYPE_NAME n = -n0;
 
-	VERIFY_XYZW(n, -2, -3, -4, -5);
+	/* casts to make it work properly on unsigned types */
+	VERIFY_XYZW(n, (VECTOR_TYPE)-2, (VECTOR_TYPE)-3, (VECTOR_TYPE)-4, (VECTOR_TYPE)-5);
+}
+
+TEST_FUNCTION(rcp)
+{
+#ifdef VECTOR_IS_FLOAT
+	VECTOR_TYPE_NAME n0 = MAKE_VECTOR_FUNCTION MAKE_VECTOR_PARAMS(2, 3, 4, 5);
+
+	VECTOR_TYPE_NAME n = rcp(n0);
+
+	VERIFY_X(n, (VECTOR_TYPE)1 / (VECTOR_TYPE)2);
+	VERIFY_Y(n, (VECTOR_TYPE)1 / (VECTOR_TYPE)3);
+	VERIFY_Z(n, (VECTOR_TYPE)1 / (VECTOR_TYPE)4);
+	VERIFY_W(n, (VECTOR_TYPE)1 / (VECTOR_TYPE)5);
+#endif
 }
 
 TEST_FUNCTION(add)
@@ -165,20 +174,6 @@ TEST_FUNCTION(mul)
 	VERIFY_XYZW(n, 2*6, 3*7, 4*8, 5*9);
 }
 
-TEST_FUNCTION(rcp)
-{
-#ifdef VECTOR_IS_FLOAT
-	VECTOR_TYPE_NAME n0 = MAKE_VECTOR_FUNCTION MAKE_VECTOR_PARAMS(2, 3, 4, 5);
-
-	VECTOR_TYPE_NAME n = rcp(n0);
-
-	VERIFY_X(n, (VECTOR_TYPE)1 / (VECTOR_TYPE)2);
-	VERIFY_Y(n, (VECTOR_TYPE)1 / (VECTOR_TYPE)3);
-	VERIFY_Z(n, (VECTOR_TYPE)1 / (VECTOR_TYPE)4);
-	VERIFY_W(n, (VECTOR_TYPE)1 / (VECTOR_TYPE)5);
-#endif
-}
-
 TEST_FUNCTION(div)
 {
 	VECTOR_TYPE_NAME n0 = MAKE_VECTOR_FUNCTION MAKE_VECTOR_PARAMS(2, 3, 4, 5);
@@ -201,6 +196,111 @@ TEST_FUNCTION(shr)
 TEST_FUNCTION(shl)
 {
 #ifdef VECTOR_IS_INTEGER
+#endif
+}
+
+TEST_FUNCTION(add_assign_vector)
+{
+	VECTOR_TYPE_NAME n0 = MAKE_VECTOR_FUNCTION MAKE_VECTOR_PARAMS(2, 3, 4, 5);
+	VECTOR_TYPE_NAME n1 = MAKE_VECTOR_FUNCTION MAKE_VECTOR_PARAMS(6, 7, 8, 9);
+
+	n0 += n1;
+	VERIFY_XYZW(n0, 8, 10, 12, 14);
+}
+
+TEST_FUNCTION(sub_assign_vector)
+{
+	VECTOR_TYPE_NAME n0 = MAKE_VECTOR_FUNCTION MAKE_VECTOR_PARAMS(2, 3, 4, 5);
+	VECTOR_TYPE_NAME n1 = MAKE_VECTOR_FUNCTION MAKE_VECTOR_PARAMS(6, 7, 8, 9);
+
+	n1 -= n0;
+	VERIFY_XYZW(n1, 4, 4, 4, 4);
+}
+
+TEST_FUNCTION(mul_assign_vector)
+{
+	VECTOR_TYPE_NAME n0 = MAKE_VECTOR_FUNCTION MAKE_VECTOR_PARAMS(2, 3, 4, 5);
+	VECTOR_TYPE_NAME n1 = MAKE_VECTOR_FUNCTION MAKE_VECTOR_PARAMS(6, 7, 8, 9);
+
+	n0 *= n1;
+	VERIFY_XYZW(n0, 2*6, 3*7, 4*8, 5*9);
+}
+
+TEST_FUNCTION(div_assign_vector)
+{
+	VECTOR_TYPE_NAME n0 = MAKE_VECTOR_FUNCTION MAKE_VECTOR_PARAMS(2, 3, 4, 5);
+
+	VECTOR_TYPE_NAME n;
+
+	n = (n0 * n0);
+	VERIFY_XYZW(n, 2*2, 3*3, 4*4, 5*5);
+
+	n /= n0;
+	VERIFY_XYZW(n, 2, 3, 4, 5);
+}
+
+TEST_FUNCTION(add_assign_scalar)
+{
+	VECTOR_TYPE_NAME n0 = MAKE_VECTOR_FUNCTION MAKE_VECTOR_PARAMS(2, 3, 4, 5);
+
+	n0 += (VECTOR_TYPE)10;
+	VERIFY_XYZW(n0, 12, 13, 14, 15);
+}
+
+TEST_FUNCTION(sub_assign_scalar)
+{
+	VECTOR_TYPE_NAME n0 = MAKE_VECTOR_FUNCTION MAKE_VECTOR_PARAMS(12, 13, 14, 15);
+
+	n0 -= (VECTOR_TYPE)10;
+	VERIFY_XYZW(n0, 2, 3, 4, 5);
+}
+
+TEST_FUNCTION(mul_assign_scalar)
+{
+	VECTOR_TYPE_NAME n0 = MAKE_VECTOR_FUNCTION MAKE_VECTOR_PARAMS(2, 3, 4, 5);
+
+	n0 *= (VECTOR_TYPE)3;
+	VERIFY_XYZW(n0, 2*3, 3*3, 4*3, 5*3);
+}
+
+TEST_FUNCTION(div_assign_scalar)
+{
+	VECTOR_TYPE_NAME n0 = MAKE_VECTOR_FUNCTION MAKE_VECTOR_PARAMS(20, 30, 40, 50);
+
+	VECTOR_TYPE_NAME n;
+
+	n0 /= (VECTOR_TYPE)10;
+	VERIFY_XYZW(n0, 2, 3, 4, 5);
+}
+
+TEST_FUNCTION(shr_assign)
+{
+#ifdef VECTOR_IS_INTEGER
+	int bits = sizeof(VECTOR_TYPE) * 8;
+
+	VECTOR_TYPE_NAME n0;
+
+	/* test small shift */
+	n0 = MAKE_VECTOR_FUNCTION MAKE_VECTOR_PARAMS(1<<(bits-2), 1<<(bits-3), 2, 1);
+	n0 >>= 1;
+	VERIFY_XYZW(n0, 1<<(bits-3), 1<<(bits-4), 1, 0);
+
+	/* test big shift */
+	n0 = MAKE_VECTOR_FUNCTION MAKE_VECTOR_PARAMS(1<<(bits-2), 1<<(bits-3), 1<<(bits-4), 1<<(bits-5));
+	n0 >>= (bits-5);
+	VERIFY_XYZW(n0, 1<<(3), 1<<(2), 1<<(1), 1);
+#endif
+}
+
+TEST_FUNCTION(shl_assign)
+{
+#ifdef VECTOR_IS_INTEGER
+	int bits = sizeof(VECTOR_TYPE) * 8;
+
+	VECTOR_TYPE_NAME n0 = MAKE_VECTOR_FUNCTION MAKE_VECTOR_PARAMS(1<<(bits-2), 1<<(bits-3), 2, 1);
+
+	n0 >>= 1;
+	VERIFY_XYZW(n0, 1<<(bits-3), 1<<(bits-4), 1, 0);
 #endif
 }
 
@@ -345,7 +445,25 @@ TEST_FUNCTION(extract)
 
 TEST_FUNCTION(insert)
 {
+	VECTOR_TYPE_NAME n0 = MAKE_VECTOR_FUNCTION MAKE_VECTOR_PARAMS(1, 2, 3, 4);
 
+	VECTOR_TYPE_NAME t0;
+
+	t0 = insert<0>(n0, 5);
+	VERIFY_XYZW(t0, 5, 2, 3, 4);
+
+	t0 = insert<1>(n0, 5);
+	VERIFY_XYZW(t0, 1, 5, 3, 4);
+
+#if VECTOR_SIZE > 2
+	t0 = insert<2>(n0, 5);
+	VERIFY_XYZW(t0, 1, 2, 5, 4);
+#endif
+
+#if VECTOR_SIZE > 3
+	t0 = insert<3>(n0, 5);
+	VERIFY_XYZW(t0, 1, 2, 3, 5);
+#endif
 }
 
 TEST_FUNCTION(makemask_compare)

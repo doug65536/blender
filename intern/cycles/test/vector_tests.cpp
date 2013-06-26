@@ -73,22 +73,43 @@ bool failed;
 
 DECLARE_TESTS(make_vector);
 DECLARE_TESTS(make_scalar);
+
+DECLARE_TESTS(rcp);
 DECLARE_TESTS(neg);
+
 DECLARE_TESTS(add);
 DECLARE_TESTS(sub);
 DECLARE_TESTS(mul);
-DECLARE_TESTS(rcp);
 DECLARE_TESTS(div);
+
 DECLARE_TESTS(shr);
 DECLARE_TESTS(shl);
+
+DECLARE_TESTS(add_assign_vector);
+DECLARE_TESTS(sub_assign_vector);
+DECLARE_TESTS(mul_assign_vector);
+DECLARE_TESTS(div_assign_vector);
+
+DECLARE_TESTS(add_assign_scalar);
+DECLARE_TESTS(sub_assign_scalar);
+DECLARE_TESTS(mul_assign_scalar);
+DECLARE_TESTS(div_assign_scalar);
+
+DECLARE_TESTS(shr_assign);
+DECLARE_TESTS(shl_assign);
+
 DECLARE_TESTS(min);
 DECLARE_TESTS(max);
 DECLARE_TESTS(clamp);
+
 DECLARE_TESTS(shuffle);
 DECLARE_TESTS(extract);
 DECLARE_TESTS(insert);
+
 DECLARE_TESTS(makemask_compare);
+
 DECLARE_TESTS(convert);
+
 DECLARE_TESTS(dot);
 DECLARE_TESTS(cross);
 
@@ -96,22 +117,42 @@ static void runtests()
 {
 	INVOKE_TESTS(make_vector);
 	INVOKE_TESTS(make_scalar);
+
+	INVOKE_TESTS(rcp);
 	INVOKE_TESTS(neg);
+
 	INVOKE_TESTS(add);
 	INVOKE_TESTS(sub);
 	INVOKE_TESTS(mul);
-	INVOKE_TESTS(rcp);
 	INVOKE_TESTS(div);
 	INVOKE_TESTS(shr);
 	INVOKE_TESTS(shl);
+
+	INVOKE_TESTS(add_assign_vector);
+	INVOKE_TESTS(sub_assign_vector);
+	INVOKE_TESTS(mul_assign_vector);
+	INVOKE_TESTS(div_assign_vector);
+
+	INVOKE_TESTS(add_assign_scalar);
+	INVOKE_TESTS(sub_assign_scalar);
+	INVOKE_TESTS(mul_assign_scalar);
+	INVOKE_TESTS(div_assign_scalar);
+
+	INVOKE_TESTS(shr_assign);
+	INVOKE_TESTS(shl_assign);
+
 	INVOKE_TESTS(min);
 	INVOKE_TESTS(max);
 	INVOKE_TESTS(clamp);
+
 	INVOKE_TESTS(shuffle);
 	INVOKE_TESTS(extract);
 	INVOKE_TESTS(insert);
+
 	INVOKE_TESTS(makemask_compare);
+
 	INVOKE_TESTS(convert);
+
 	INVOKE_TESTS(dot);
 	INVOKE_TESTS(cross);
 }

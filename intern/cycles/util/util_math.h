@@ -260,6 +260,39 @@ __forceinline __m128i sse_invert_epi32(const __m128i a)
 #define _mm_cmpne_epi32(a,b) sse_invert_epi32(_mm_cmpeq_epi32((a),(b)));
 #define _mm_cmpge_epi32(a,b) sse_invert_epi32(_mm_cmplt_epi32((a),(b)));
 
+/* unsigned 32 bit comparison helpers */
+
+/* note for SSE optimizations here:
+ * there are no unsigned comparisons, so MIN_INT is added to both operands */
+
+#ifdef __KERNEL_SSE__
+__forceinline __m128i sse_unsigned_bias() { return _mm_set1_epi32(0x80000000); }
+#endif
+
+__forceinline __m128i _mm_cmplt_epu32(__m128i a, __m128i b)
+{
+	__m128i bias = sse_unsigned_bias();
+	return _mm_cmplt_epi32(_mm_add_epi32(a, bias), _mm_add_epi32(b, bias));
+}
+
+__forceinline __m128i _mm_cmple_epu32(__m128i a, __m128i b)
+{
+	__m128i bias = sse_unsigned_bias();
+	return _mm_cmple_epi32(_mm_add_epi32(a, bias), _mm_add_epi32(b, bias));
+}
+
+__forceinline __m128i _mm_cmpge_epu32(__m128i a, __m128i b)
+{
+	__m128i bias = sse_unsigned_bias();
+	return _mm_cmpge_epi32(_mm_add_epi32(a, bias), _mm_add_epi32(b, bias));
+}
+
+__forceinline __m128i _mm_cmpgt_epu32(__m128i a, __m128i b)
+{
+	__m128i bias = sse_unsigned_bias();
+	return _mm_cmpgt_epi32(_mm_add_epi32(a, bias), _mm_add_epi32(b, bias));
+}
+
 #endif
 
 /* uchar2 comparisons */
@@ -435,7 +468,7 @@ __device_inline bool is_notequal(const uint2 a, const uint2 b)
 __device_inline uint3 operator<(const uint3 a, const uint3 b)
 {
 #ifdef __KERNEL_SSE__
-	return _mm_cmplt_epi32(a, b);
+	return _mm_cmplt_epu32(a, b);
 #else
 	return make_uint3(a.x < b.x, a.y < b.y, a.z < b.z);
 #endif
@@ -444,9 +477,7 @@ __device_inline uint3 operator<(const uint3 a, const uint3 b)
 __device_inline uint3 operator<=(const uint3 a, const uint3 b)
 {
 #ifdef __KERNEL_SSE__
-	/* no uinteger less equal so invert greater */
-	__m128i allones = _mm_cmpeq_epi32(a, a);
-	return _mm_xor_si128(_mm_cmpgt_epi32(a, b), allones);
+	return _mm_cmple_epu32(a, b);
 #else
 	return make_uint3(a.x <= b.x, a.y <= b.y, a.z <= b.z);
 #endif
@@ -464,9 +495,7 @@ __device_inline uint3 operator==(const uint3 a, const uint3 b)
 __device_inline uint3 operator!=(const uint3 a, const uint3 b)
 {
 #ifdef __KERNEL_SSE__
-	/* no uinteger not equal so invert equal */
-	__m128i allones = _mm_cmpeq_epi32(a, a);
-	return _mm_xor_si128(_mm_cmpeq_epi32(a, b), allones);
+	return _mm_cmpne_epi32(a, b);
 #else
 	return make_uint3(a.x != b.x, a.y != b.y, a.z != b.z);
 #endif
@@ -475,9 +504,7 @@ __device_inline uint3 operator!=(const uint3 a, const uint3 b)
 __device_inline uint3 operator>=(const uint3 a, const uint3 b)
 {
 #ifdef __KERNEL_SSE__
-	/* no uinteger not equal so invert equal */
-	__m128i allones = _mm_cmpeq_epi32(a, a);
-	return _mm_xor_si128(_mm_cmplt_epi32(a, b), allones);
+	return _mm_cmpge_epi32(a, b);
 #else
 	return make_uint3(a.x >= b.x, a.y >= b.y, a.z >= b.z);
 #endif
@@ -508,18 +535,10 @@ __device_inline bool is_notequal(const uint3 a, const uint3 b)
 
 /* uint4 comparisons */
 
-/* note for SSE optimizations here:
- * there are no unsigned comparisons, so MIN_INT is added to both operands */
-
-#ifdef __KERNEL_SSE__
-__forceinline __m128i sse_unsigned_bias() { return _mm_set1_epi32(0x80000000); }
-#endif
-
 __device_inline uint4 operator<(const uint4 a, const uint4 b)
 {
 #ifdef __KERNEL_SSE__
-	__m128i bias = sse_unsigned_bias();
-	return _mm_cmplt_epi32(_mm_add_epi32(a, bias), _mm_add_epi32(b, bias));
+	return _mm_cmplt_epu32(a, b);
 #else
 	return make_uint4(a.x < b.x, a.y < b.y, a.z < b.z, a.w < b.w);
 #endif
@@ -528,8 +547,7 @@ __device_inline uint4 operator<(const uint4 a, const uint4 b)
 __device_inline uint4 operator<=(const uint4 a, const uint4 b)
 {
 #ifdef __KERNEL_SSE__
-	__m128i bias = sse_unsigned_bias();
-	return _mm_cmple_epi32(_mm_add_epi32(a, bias), _mm_add_epi32(b, bias));
+	return _mm_cmple_epu32(a, b);
 #else
 	return make_uint4(a.x <= b.x, a.y <= b.y, a.z <= b.z, a.w <= b.w);
 #endif
@@ -556,8 +574,7 @@ __device_inline uint4 operator!=(const uint4 a, const uint4 b)
 __device_inline uint4 operator>=(const uint4 a, const uint4 b)
 {
 #ifdef __KERNEL_SSE__
-	__m128i bias = sse_unsigned_bias();
-	return _mm_cmpge_epi32(_mm_add_epi32(a, bias), _mm_add_epi32(b, bias));
+	return _mm_cmpge_epu32(a, b);
 #else
 	return make_uint4(a.x >= b.x, a.y >= b.y, a.z >= b.z, a.w >= b.w);
 #endif
@@ -566,8 +583,7 @@ __device_inline uint4 operator>=(const uint4 a, const uint4 b)
 __device_inline uint4 operator>(const uint4 a, const uint4 b)
 {
 #ifdef __KERNEL_SSE__
-	__m128i bias = sse_unsigned_bias();
-	return _mm_cmpgt_epi32(_mm_add_epi32(a, bias), _mm_add_epi32(b, bias));
+	return _mm_cmpgt_epu32(a, b);
 #else
 	return make_uint4(a.x > b.x, a.y > b.y, a.z > b.z, a.w > b.w);
 #endif
@@ -643,9 +659,7 @@ __device_inline int3 operator<(const int3 a, const int3 b)
 __device_inline int3 operator<=(const int3 a, const int3 b)
 {
 #ifdef __KERNEL_SSE__
-	/* no integer less equal so invert greater */
-	__m128i allones = _mm_cmpeq_epi32(a, a);
-	return _mm_xor_si128(_mm_cmpgt_epi32(a, b), allones);
+	return _mm_cmple_epi32(a, b);
 #else
 	return make_int3(a.x <= b.x, a.y <= b.y, a.z <= b.z);
 #endif
@@ -663,9 +677,7 @@ __device_inline int3 operator==(const int3 a, const int3 b)
 __device_inline int3 operator!=(const int3 a, const int3 b)
 {
 #ifdef __KERNEL_SSE__
-	/* no integer not equal so invert equal */
-	__m128i allones = _mm_cmpeq_epi32(a, a);
-	return _mm_xor_si128(_mm_cmpeq_epi32(a, b), allones);
+	return _mm_cmpne_epi32(a, b);
 #else
 	return make_int3(a.x != b.x, a.y != b.y, a.z != b.z);
 #endif
@@ -674,9 +686,7 @@ __device_inline int3 operator!=(const int3 a, const int3 b)
 __device_inline int3 operator>=(const int3 a, const int3 b)
 {
 #ifdef __KERNEL_SSE__
-	/* no integer not equal so invert equal */
-	__m128i allones = _mm_cmpeq_epi32(a, a);
-	return _mm_xor_si128(_mm_cmplt_epi32(a, b), allones);
+	return _mm_cmpge_epi32(a, b);
 #else
 	return make_int3(a.x >= b.x, a.y >= b.y, a.z >= b.z);
 #endif
@@ -1031,27 +1041,62 @@ __device_inline uchar2 operator-(const uchar2 a, const uchar2 b)
 	return make_uchar2(a.x-b.x, a.y-b.y);
 }
 
-__device_inline uchar2 operator+=(uchar2& a, const uchar2 b)
+__device_inline uchar2 operator>>(uchar2& a, uchar f)
+{
+	return make_uchar2(a.x >> f, a.y >> f);
+}
+
+__device_inline uchar2 operator<<(uchar2& a, uchar f)
+{
+	return make_uchar2(a.x << f, a.y << f);
+}
+
+__device_inline uchar2& operator>>=(uchar2& a, uchar f)
+{
+	return a = a >> f;
+}
+
+__device_inline uchar2& operator<<=(uchar2& a, uchar f)
+{
+	return a = a << f;
+}
+
+__device_inline uchar2& operator-=(uchar2& a, const uchar2 b)
+{
+	return a = a - b;
+}
+
+__device_inline uchar2& operator-=(uchar2& a, const uchar b)
+{
+	return a = a - make_uchar2(b);
+}
+
+__device_inline uchar2& operator+=(uchar2& a, const uchar2 b)
 {
 	return a = a + b;
 }
 
-__device_inline uchar2 operator*=(uchar2& a, const uchar2 b)
+__device_inline uchar2& operator+=(uchar2& a, const uchar b)
+{
+	return a = a + make_uchar2(b);
+}
+
+__device_inline uchar2& operator*=(uchar2& a, const uchar2 b)
 {
 	return a = a * b;
 }
 
-__device_inline uchar2 operator*=(uchar2& a, uchar f)
+__device_inline uchar2& operator*=(uchar2& a, uchar f)
 {
 	return a = a * f;
 }
 
-__device_inline uchar2 operator/=(uchar2& a, const uchar2 b)
+__device_inline uchar2& operator/=(uchar2& a, const uchar2 b)
 {
 	return a = a / b;
 }
 
-__device_inline uchar2 operator/=(uchar2& a, uchar f)
+__device_inline uchar2& operator/=(uchar2& a, uchar f)
 {
 	return a = a / f;
 }
@@ -1132,29 +1177,62 @@ __device_inline uchar3 operator-(const uchar3 a, const uchar3 b)
 	return make_uchar3(a.x-b.x, a.y-b.y, a.z-b.z);
 }
 
-__device_inline uchar3 operator+=(uchar3& a, const uchar3 b)
+__device_inline uchar3 operator>>(uchar3& a, uchar f)
 {
-	a = a + b;
-	return a;
+	return make_uchar3(a.x >> f, a.y >> f, a.z >> f);
 }
 
-__device_inline uchar3 operator*=(uchar3& a, const uchar3 b)
+__device_inline uchar3 operator<<(uchar3& a, uchar f)
 {
-	a = a * b;
-	return a;
+	return make_uchar3(a.x << f, a.y << f, a.z << f);
 }
 
-__device_inline uchar3 operator*=(uchar3& a, uchar f)
+__device_inline uchar3& operator>>=(uchar3& a, uchar f)
+{
+	return a = a >> f;
+}
+
+__device_inline uchar3& operator<<=(uchar3& a, uchar f)
+{
+	return a = a << f;
+}
+
+__device_inline uchar3& operator+=(uchar3& a, const uchar3 b)
+{
+	return a = a + b;
+}
+
+__device_inline uchar3& operator+=(uchar3& a, const uchar b)
+{
+	return a = a + make_uchar3(b);
+}
+
+__device_inline uchar3& operator-=(uchar3& a, const uchar3 b)
+{
+	return a = a - b;
+}
+
+__device_inline uchar3& operator-=(uchar3& a, const uchar b)
+{
+	return a = a - make_uchar3(b);
+}
+
+__device_inline uchar3& operator*=(uchar3& a, const uchar3 b)
+{
+	return a = a * b;
+}
+
+__device_inline uchar3& operator*=(uchar3& a, uchar f)
 {
 	return a = a * f;
 }
 
-__device_inline uchar3 operator/=(uchar3& a, const uchar3 b)
+__device_inline uchar3& operator/=(uchar3& a, const uchar3 b)
 {
 	return a = a / b;
 }
 
-__device_inline uchar3 operator/=(uchar3& a, uchar f)
+__device_inline uchar3& operator/=(uchar3& a, uchar f)
 {
 	return a = a / f;
 }
@@ -1235,29 +1313,62 @@ __device_inline uchar4 operator-(const uchar4 a, const uchar4 b)
 	return make_uchar4(a.x-b.x, a.y-b.y, a.z-b.z, a.w-b.w);
 }
 
-__device_inline uchar4 operator+=(uchar4& a, const uchar4 b)
+__device_inline uchar4 operator>>(uchar4& a, uchar f)
 {
-	a += b;
-	return a;
+	return make_uchar4(a.x >> f, a.y >> f, a.z >> f, a.w >> f);
 }
 
-__device_inline uchar4 operator*=(uchar4& a, const uchar4 b)
+__device_inline uchar4 operator<<(uchar4& a, uchar f)
 {
-	a *= b;
-	return a;
+	return make_uchar4(a.x << f, a.y << f, a.z << f, a.w << f);
 }
 
-__device_inline uchar4 operator*=(uchar4& a, uchar f)
+__device_inline uchar4& operator>>=(uchar4& a, uchar f)
+{
+	return a = a >> f;
+}
+
+__device_inline uchar4& operator<<=(uchar4& a, uchar f)
+{
+	return a = a << f;
+}
+
+__device_inline uchar4& operator+=(uchar4& a, const uchar4 b)
+{
+	return a = a + b;
+}
+
+__device_inline uchar4& operator+=(uchar4& a, const uchar b)
+{
+	return a = a + make_uchar4(b);
+}
+
+__device_inline uchar4& operator-=(uchar4& a, const uchar4 b)
+{
+	return a = a - b;
+}
+
+__device_inline uchar4& operator-=(uchar4& a, const uchar b)
+{
+	return a = a - make_uchar4(b);
+}
+
+__device_inline uchar4& operator*=(uchar4& a, const uchar4 b)
+{
+	return a = a * b;
+}
+
+__device_inline uchar4& operator*=(uchar4& a, uchar f)
 {
 	return a = a * f;
 }
 
-__device_inline uchar4 operator/=(uchar4& a, const uchar4 b)
+__device_inline uchar4& operator/=(uchar4& a, const uchar4 b)
 {
 	return a = a / b;
 }
 
-__device_inline uchar4 operator/=(uchar4& a, uchar f)
+__device_inline uchar4& operator/=(uchar4& a, uchar f)
 {
 	return a = a / f;
 }
@@ -1338,27 +1449,62 @@ __device_inline uint2 operator-(const uint2 a, const uint2 b)
 	return make_uint2(a.x-b.x, a.y-b.y);
 }
 
-__device_inline uint2 operator+=(uint2& a, const uint2 b)
+__device_inline uint2 operator>>(uint2& a, uchar f)
+{
+	return make_uint2(a.x >> f, a.y >> f);
+}
+
+__device_inline uint2 operator<<(uint2& a, uchar f)
+{
+	return make_uint2(a.x << f, a.y << f);
+}
+
+__device_inline uint2& operator>>=(uint2& a, uchar f)
+{
+	return a = a >> f;
+}
+
+__device_inline uint2& operator<<=(uint2& a, uchar f)
+{
+	return a = a << f;
+}
+
+__device_inline uint2& operator+=(uint2& a, const uint2 b)
 {
 	return a = a + b;
 }
 
-__device_inline uint2 operator*=(uint2& a, const uint2 b)
+__device_inline uint2& operator+=(uint2& a, const uint b)
+{
+	return a = a + make_uint2(b);
+}
+
+__device_inline uint2& operator-=(uint2& a, const uint2 b)
+{
+	return a = a - b;
+}
+
+__device_inline uint2& operator-=(uint2& a, const uint b)
+{
+	return a = a - make_uint2(b);
+}
+
+__device_inline uint2& operator*=(uint2& a, const uint2 b)
 {
 	return a = a * b;
 }
 
-__device_inline uint2 operator*=(uint2& a, uint f)
+__device_inline uint2& operator*=(uint2& a, uint f)
 {
 	return a = a * f;
 }
 
-__device_inline uint2 operator/=(uint2& a, const uint2 b)
+__device_inline uint2& operator/=(uint2& a, const uint2 b)
 {
 	return a = a / b;
 }
 
-__device_inline uint2 operator/=(uint2& a, uint f)
+__device_inline uint2& operator/=(uint2& a, uint f)
 {
 	return a = a / f;
 }
@@ -1378,16 +1524,15 @@ __device_inline uint cross(const uint2 a, const uint2 b)
 #ifndef __KERNEL_OPENCL__
 
 /* uint3 Vector */
-/* FIXME: SSE2 optimize */
 
 __device_inline uint3 min(const uint3 a, const uint3 b)
 {
-	return make_uint3(min(a.x, b.x), min(a.y, b.y), min(a.z, b.z));
+	return mask_select(a < b, a, b);
 }
 
 __device_inline uint3 max(const uint3 a, const uint3 b)
 {
-	return make_uint3(max(a.x, b.x), max(a.y, b.y), max(a.z, b.z));
+	return mask_select(a > b, a, b);
 }
 
 __device_inline uint3 clamp(uint3 a, uint3 mn, uint3 mx)
@@ -1440,29 +1585,62 @@ __device_inline uint3 operator-(const uint3 a, const uint3 b)
 	return make_uint3(a.x-b.x, a.y-b.y, a.z-b.z);
 }
 
-__device_inline uint3 operator+=(uint3& a, const uint3 b)
+__device_inline uint3 operator>>(uint3& a, uchar f)
 {
-	a += b;
-	return a;
+	return make_uint3(a.x >> f, a.y >> f, a.z >> f);
 }
 
-__device_inline uint3 operator*=(uint3& a, const uint3 b)
+__device_inline uint3 operator<<(uint3& a, uchar f)
 {
-	a *= b;
-	return a;
+	return make_uint3(a.x << f, a.y << f, a.z << f);
 }
 
-__device_inline uint3 operator*=(uint3& a, uint f)
+__device_inline uint3& operator>>=(uint3& a, uchar f)
+{
+	return a = a >> f;
+}
+
+__device_inline uint3& operator<<=(uint3& a, uchar f)
+{
+	return a = a << f;
+}
+
+__device_inline uint3& operator+=(uint3& a, const uint3 b)
+{
+	return a = a + b;
+}
+
+__device_inline uint3& operator+=(uint3& a, const uint b)
+{
+	return a = a + make_uint3(b);
+}
+
+__device_inline uint3& operator-=(uint3& a, const uint3 b)
+{
+	return a = a - b;
+}
+
+__device_inline uint3& operator-=(uint3& a, const uint b)
+{
+	return a = a - make_uint3(b);
+}
+
+__device_inline uint3& operator*=(uint3& a, const uint3 b)
+{
+	return a = a * b;
+}
+
+__device_inline uint3& operator*=(uint3& a, uint f)
 {
 	return a = a * f;
 }
 
-__device_inline uint3 operator/=(uint3& a, const uint3 b)
+__device_inline uint3& operator/=(uint3& a, const uint3 b)
 {
 	return a = a / b;
 }
 
-__device_inline uint3 operator/=(uint3& a, uint f)
+__device_inline uint3& operator/=(uint3& a, uint f)
 {
 	return a = a / f;
 }
@@ -1504,12 +1682,12 @@ __device_inline uint3 cross(const uint3 a, const uint3 b)
 
 __device_inline uint4 min(const uint4 a, const uint4 b)
 {
-	return make_uint4(min(a.x, b.x), min(a.y, b.y), min(a.z, b.z), min(a.w, b.w));
+	return mask_select(a < b, a, b);
 }
 
 __device_inline uint4 max(const uint4 a, const uint4 b)
 {
-	return make_uint4(max(a.x, b.x), max(a.y, b.y), max(a.z, b.z), max(a.w, b.w));
+	return mask_select(a > b, a, b);
 }
 
 __device_inline uint4 clamp(uint4 a, uint4 mn, uint4 mx)
@@ -1519,22 +1697,56 @@ __device_inline uint4 clamp(uint4 a, uint4 mn, uint4 mx)
 
 __device_inline uint4 operator-(const uint4 a)
 {
+#ifdef __KERNEL_SSE__
+	/* to negate, invert all bits and add one (subtract -1) */
+	__m128i allones = _mm_cmpeq_epi32(a, a);
+	__m128i t = _mm_xor_si128(a, allones);
+	return _mm_sub_epi32(t, allones);
+#else
 	return make_uint4(-a.x, -a.y, -a.z, -a.w);
+#endif
 }
 
 __device_inline uint4 operator*(const uint4 a, const uint4 b)
 {
+#if defined __KERNEL_SSE4__
+	return _mm_mullo_epi32(a, b);
+#elif defined __KERNEL_SSE__
+	/* get y and w into separate registers */
+	__m128i t0 = _mm_srli_si128(a, 4);
+	__m128i t1 = _mm_srli_si128(b, 4);
+
+	/* do x and z */
+	__m128i t2 = _mm_mul_epu32(a, b);
+
+	/* do y and w */
+	__m128i t3 = _mm_mul_epu32(t0, t1);
+
+	/* move z into second element */
+	t2 = _mm_shuffle_epi32(t2, _MM_SHUFFLE (0,0,2,0));
+
+	/* move w into second element */
+	t3 = _mm_shuffle_epi32(t3, _MM_SHUFFLE (0,0,2,0));
+
+	/* interleave results */
+	return _mm_unpacklo_epi32(t2, t3);
+#else
 	return make_uint4(a.x*b.x, a.y*b.y, a.z*b.z, a.w*b.w);
+#endif
 }
 
 __device_inline uint4 operator*(const uint4 a, uint f)
 {
+#if defined __KERNEL_SSE__
+	return a * make_uint4(f);
+#else
 	return make_uint4(a.x*f, a.y*f, a.z*f, a.w*f);
+#endif
 }
 
 __device_inline uint4 operator*(uint f, const uint4 a)
 {
-	return make_uint4(a.x*f, a.y*f, a.z*f, a.w*f);
+	return a * f;
 }
 
 __device_inline uint4 operator/(uint f, const uint4 a)
@@ -1554,37 +1766,94 @@ __device_inline uint4 operator/(const uint4 a, const uint4 b)
 
 __device_inline uint4 operator+(const uint4 a, const uint4 b)
 {
+#ifdef __KERNEL_SSE__
+	return _mm_add_epi32(a, b);
+#else
 	return make_uint4(a.x+b.x, a.y+b.y, a.z+b.z, a.w+b.w);
+#endif
 }
 
 __device_inline uint4 operator-(const uint4 a, const uint4 b)
 {
+#ifdef __KERNEL_SSE__
+	return _mm_sub_epi32(a, b);
+#else
 	return make_uint4(a.x-b.x, a.y-b.y, a.z-b.z, a.w-b.w);
+#endif
 }
 
-__device_inline uint4 operator+=(uint4& a, const uint4 b)
+__device_inline uint4 operator>>(uint4 a, uchar f)
 {
-	a += b;
-	return a;
+#ifdef __KERNEL_SSE__
+	return _mm_srai_epi16(a, f);
+#else
+	return make_uint4(a.x >> f, a.y >> f, a.z >> f, a.w >> f);
+#endif
 }
 
-__device_inline uint4 operator*=(uint4& a, const uint4 b)
+__device_inline uint4 operator<<(uint4 a, uchar f)
 {
-	a *= b;
-	return a;
+#ifdef __KERNEL_SSE__
+	return _mm_slli_epi32(a, f);
+#else
+	return make_uint4(a.x << f, a.y << f, a.z << f, a.w << f);
+#endif
 }
 
-__device_inline uint4 operator*=(uint4& a, uint f)
+__device_inline uint4& operator>>=(uint4& a, uchar f)
+{
+#ifdef __KERNEL_SSE__
+	return a = _mm_srai_epi32(a, f);
+#else
+	return a = a >> f;
+#endif
+}
+
+__device_inline uint4& operator<<=(uint4& a, uchar f)
+{
+#ifdef __KERNEL_SSE__
+	return a = _mm_slli_epi32(a, f);
+#else
+	return a = a << f;
+#endif
+}
+
+__device_inline uint4& operator+=(uint4& a, const uint4 b)
+{
+	return a = a + b;
+}
+
+__device_inline uint4& operator+=(uint4& a, const uint b)
+{
+	return a = a + make_uint4(b);
+}
+
+__device_inline uint4& operator-=(uint4& a, const uint4 b)
+{
+	return a = a - b;
+}
+
+__device_inline uint4& operator-=(uint4& a, const uint b)
+{
+	return a = a - make_uint4(b);
+}
+
+__device_inline uint4& operator*=(uint4& a, const uint4 b)
+{
+	return a = a * b;
+}
+
+__device_inline uint4& operator*=(uint4& a, uint f)
 {
 	return a = a * f;
 }
 
-__device_inline uint4 operator/=(uint4& a, const uint4 b)
+__device_inline uint4& operator/=(uint4& a, const uint4 b)
 {
 	return a = a / b;
 }
 
-__device_inline uint4 operator/=(uint4& a, uint f)
+__device_inline uint4& operator/=(uint4& a, uint f)
 {
 	return a = a / f;
 }
@@ -1683,9 +1952,44 @@ __device_inline int2 operator-(const int2 a, const int2 b)
 	return make_int2(a.x-b.x, a.y-b.y);
 }
 
+__device_inline int2 operator>>(int2& a, uchar f)
+{
+	return make_int2(a.x >> f, a.y >> f);
+}
+
+__device_inline int2 operator<<(int2& a, uchar f)
+{
+	return make_int2(a.x << f, a.y << f);
+}
+
+__device_inline int2 operator>>=(int2& a, uchar f)
+{
+	return a = a >> f;
+}
+
+__device_inline int2 operator<<=(int2& a, uchar f)
+{
+	return a = a << f;
+}
+
 __device_inline int2 operator+=(int2& a, const int2 b)
 {
 	return a = a + b;
+}
+
+__device_inline int2 operator+=(int2& a, const int b)
+{
+	return a = a + make_int2(b);
+}
+
+__device_inline int2 operator-=(int2& a, const int2 b)
+{
+	return a = a - b;
+}
+
+__device_inline int2 operator-=(int2& a, const int b)
+{
+	return a = a - make_int2(b);
 }
 
 __device_inline int2 operator*=(int2& a, const int2 b)
@@ -1785,16 +2089,49 @@ __device_inline int3 operator-(const int3 a, const int3 b)
 	return make_int3(a.x-b.x, a.y-b.y, a.z-b.z);
 }
 
+__device_inline int3 operator>>(int3& a, uchar f)
+{
+	return make_int3(a.x >> f, a.y >> f, a.z >> f);
+}
+
+__device_inline int3 operator<<(int3& a, uchar f)
+{
+	return make_int3(a.x << f, a.y << f, a.z << f);
+}
+
+__device_inline int3 operator>>=(int3& a, uchar f)
+{
+	return a = a >> f;
+}
+
+__device_inline int3 operator<<=(int3& a, uchar f)
+{
+	return a = a << f;
+}
+
 __device_inline int3 operator+=(int3& a, const int3 b)
 {
-	a += b;
-	return a;
+	return a = a + b;
+}
+
+__device_inline int3 operator+=(int3& a, const int b)
+{
+	return a = a + make_int3(b);
+}
+
+__device_inline int3 operator-=(int3& a, const int3 b)
+{
+	return a = a - b;
+}
+
+__device_inline int3 operator-=(int3& a, const int b)
+{
+	return a = a - make_int3(b);
 }
 
 __device_inline int3 operator*=(int3& a, const int3 b)
 {
-	a *= b;
-	return a;
+	return a = a * b;
 }
 
 __device_inline int3 operator*=(int3& a, int f)
@@ -1901,10 +2238,44 @@ __device_inline int4 operator-(const int4 a, const int4 b)
 	return make_int4(a.x-b.x, a.y-b.y, a.z-b.z, a.w-b.w);
 }
 
+__device_inline int4 operator>>(int4& a, uchar f)
+{
+	return make_int4(a.x >> f, a.y >> f, a.z >> f, a.w >> f);
+}
+
+__device_inline int4 operator<<(int4& a, uchar f)
+{
+	return make_int4(a.x << f, a.y << f, a.z << f, a.w << f);
+}
+
+__device_inline int4 operator>>=(int4& a, uchar f)
+{
+	return a = a >> f;
+}
+
+__device_inline int4 operator<<=(int4& a, uchar f)
+{
+	return a = a << f;
+}
+
 __device_inline int4 operator+=(int4& a, const int4 b)
 {
-	a = a + b;
-	return a;
+	return a = a + b;
+}
+
+__device_inline int4 operator+=(int4& a, const int b)
+{
+	return a = a + make_int4(b);
+}
+
+__device_inline int4 operator-=(int4& a, const int4 b)
+{
+	return a = a - b;
+}
+
+__device_inline int4 operator-=(int4& a, const int b)
+{
+	return a = a - make_int4(b);
 }
 
 __device_inline int4 operator*=(int4& a, const int4 b)
@@ -2013,6 +2384,21 @@ __device_inline float2 operator-(const float2 a, const float2 b)
 __device_inline float2 operator+=(float2& a, const float2 b)
 {
 	return a = a + b;
+}
+
+__device_inline float2 operator+=(float2& a, const float b)
+{
+	return a = a + make_float2(b);
+}
+
+__device_inline float2 operator-=(float2& a, const float2 b)
+{
+	return a = a - b;
+}
+
+__device_inline float2 operator-=(float2& a, const float b)
+{
+	return a = a - make_float2(b);
 }
 
 __device_inline float2 operator*=(float2& a, const float2 b)
@@ -2302,6 +2688,39 @@ __device_inline float3 operator+=(float3& a, const float3 b)
 	return a;
 #else
 	a = a + b;
+	return a;
+#endif
+}
+
+__device_inline float3 operator+=(float3& a, const float b)
+{
+#ifdef __KERNEL_SSE__
+	a = _mm_add_ps(a, _mm_set1_ps(b));
+	return a;
+#else
+	a = a + make_float3(b);
+	return a;
+#endif
+}
+
+__device_inline float3 operator-=(float3& a, const float3 b)
+{
+#ifdef __KERNEL_SSE__
+	a = _mm_sub_ps(a, b);
+	return a;
+#else
+	a = a - b;
+	return a;
+#endif
+}
+
+__device_inline float3 operator-=(float3& a, const float b)
+{
+#ifdef __KERNEL_SSE__
+	a = _mm_sub_ps(a, _mm_set1_ps(b));
+	return a;
+#else
+	a = a - make_float3(b);
 	return a;
 #endif
 }
@@ -2751,9 +3170,34 @@ __device_inline float4 operator+=(float4& a, const float4 b)
 	return a = a + b;
 }
 
+__device_inline float4 operator+=(float4& a, const float b)
+{
+	return a = a + make_float4(b);
+}
+
+__device_inline float4 operator-=(float4& a, const float4 b)
+{
+	return a = a - b;
+}
+
+__device_inline float4 operator-=(float4& a, const float b)
+{
+	return a = a - make_float4(b);
+}
+
 __device_inline float4 operator*=(float4& a, const float4 b)
 {
 	return a = a * b;
+}
+
+__device_inline float4 operator*=(float4& a, const float b)
+{
+	return a = a * make_float4(b);
+}
+
+__device_inline float4 operator/=(float4& a, const float4 b)
+{
+	return a = a * rcp(b);
 }
 
 __device_inline float4 operator/=(float4& a, float f)
