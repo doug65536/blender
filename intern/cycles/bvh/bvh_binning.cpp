@@ -164,8 +164,9 @@ BVHObjectBinning::BVHObjectBinning(const BVHRange& job, BVHReference *prims)
 
 	/* make elements with <= 0.0f bound size = FLT_MAX */
 	bestSAH = mask_select(mask, make_float4(FLT_MAX), bestSAH);
-
 	bestSAH = insert<3>(bestSAH, FLT_MAX);
+
+	TRACE_BIN("bestSAH = %.1e\n", bestSAH);
 
 	/* find best dimension */
 	dim = get_best_dimension(bestSAH);
@@ -173,6 +174,8 @@ BVHObjectBinning::BVHObjectBinning(const BVHRange& job, BVHReference *prims)
 	pos = bestSplit[dim];
 	leafSAH	= bounds().half_area() * blocks(size());
 
+	TRACE_BIN("splitSAH = %.1e\n", splitSAH);
+	TRACE_BIN("bestSplit[%d] = %d\n", dim, bestSplit[dim]);
 	TRACE_BIN("leafSAH = %.1e\n", leafSAH);
 }
 
