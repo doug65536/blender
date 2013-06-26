@@ -67,7 +67,7 @@ BVHObjectBinning::BVHObjectBinning(const BVHRange& job, BVHReference *prims)
 	scale = rcp(cent_bounds().size()) * make_float3((float)num_bins);
 
 	TRACE_BIN("num_bins = %d\n", (int)num_bins);
-	TRACE_BIN("scale = %.1e,%.1e,%.1e\n", scale);
+	TRACE_BIN("scale = %.1e,%.1e,%.1e\n", scale.x, scale.y, scale.z);
 
 	/* initialize binning counter and bounds */
 	BoundBox bin_bounds[MAX_BINS][4];	/* bounds for every bin in every dimension */
@@ -173,7 +173,7 @@ BVHObjectBinning::BVHObjectBinning(const BVHRange& job, BVHReference *prims)
 	pos = bestSplit[dim];
 	leafSAH	= bounds().half_area() * blocks(size());
 
-	TRACE_BIN("leafSAH = %.1g\n", leafSAH);
+	TRACE_BIN("leafSAH = %.1e\n", leafSAH);
 }
 
 void BVHObjectBinning::split(BVHReference* prims, BVHObjectBinning& left_o, BVHObjectBinning& right_o) const
