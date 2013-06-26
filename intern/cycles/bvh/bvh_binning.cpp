@@ -167,7 +167,7 @@ BVHObjectBinning::BVHObjectBinning(const BVHRange& job, BVHReference *prims)
 	int4 mask = float3_to_float4(cent_bounds().size()) <= make_float4(0.0f);
 	bestSAH = insert<3>(select(mask, make_float4(FLT_MAX), bestSAH), FLT_MAX);
 
-	TRACE_BIN("bestSAH = %.1e\n", bestSAH);
+	TRACE_BIN("bestSAH = %.1e %.1e %.1e\n", bestSAH.x, bestSAH.y, bestSAH.z);
 
 	/* find best dimension */
 	dim = get_best_dimension(bestSAH);
