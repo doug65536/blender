@@ -201,7 +201,7 @@ void SubdFaceRing::initVerts()
 		for(SubdVert::ReverseEdgeIterator eit(firstEdge); !eit.isDone(); eit.advance(), i++) {
 			SubdEdge *edge = eit.current();
 
-			assert(edge->from()->co == firstEdge->from()->co);
+			assert(is_equal(edge->from()->co, firstEdge->from()->co));
 
 			add_vert(edge->to());
 
@@ -226,7 +226,7 @@ bool SubdFaceRing::has_vert(SubdVert *vertex)
 	int num_verts = m_verts.size();
 
 	for(int i = 0; i < num_verts; i++)
-		if(m_verts[i]->co == vertex->co)
+		if(is_equal(m_verts[i]->co, vertex->co))
 			return true;
 
 	return false;

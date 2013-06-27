@@ -1,3 +1,6 @@
+/* this file is included in each cpp file with different SSE code generation options
+ * TEST_VARIATION is 0 for no sse, 2 for sse2, 3 for sse3, 4 for sse4.
+ FIXME: add avx1 case */
 
 #if TEST_VARIATION == 0
 

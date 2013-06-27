@@ -113,6 +113,11 @@ DECLARE_TESTS(convert);
 DECLARE_TESTS(dot);
 DECLARE_TESTS(cross);
 
+/* scalars */
+
+DECLARE_TESTS(float_as_int);
+DECLARE_TESTS(int_as_float);
+
 static void runtests()
 {
 	INVOKE_TESTS(make_vector);
@@ -155,6 +160,11 @@ static void runtests()
 
 	INVOKE_TESTS(dot);
 	INVOKE_TESTS(cross);
+
+	/* scalars */
+
+	INVOKE_TESTS(float_as_int);
+	INVOKE_TESTS(int_as_float);
 }
 
 CCL_NAMESPACE_END

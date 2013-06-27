@@ -91,7 +91,7 @@ public:
 			/* && samples == params.samples */
 			&& progressive == params.progressive
 			&& experimental == params.experimental
-			&& tile_size == params.tile_size
+			&& is_notequal(tile_size, params.tile_size)
 			&& start_resolution == params.start_resolution
 			&& threads == params.threads
 			&& cancel_timeout == params.cancel_timeout

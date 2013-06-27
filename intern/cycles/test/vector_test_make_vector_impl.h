@@ -8,15 +8,6 @@
 #error Preprocessor trick requires VECTOR_SIZE defined
 #endif
 
-/* each recursion expands a nested expansion, do lots just in case */
-#define JOIN6(a,b) a##b
-#define JOIN5(a,b) JOIN6(a,b)
-#define JOIN4(a,b) JOIN5(a,b)
-#define JOIN3(a,b) JOIN4(a,b)
-#define JOIN2(a,b) JOIN3(a,b)
-#define JOIN1(a,b) JOIN2(a,b)
-#define JOIN(a,b) JOIN1(a,b)
-
 /* example: _SSE2 */
 #define ARCH_SUFFIX JOIN(_SSE, TEST_VARIATION)
 
@@ -31,25 +22,27 @@
 #define MASK_TYPE_NAME VECTOR_TYPE_NAME
 #endif
 
-/* example: float4 */
-#undef FLOAT_TYPE_NAME
-#define FLOAT_TYPE_NAME JOIN(float, VECTOR_SIZE)
+#if VECTOR_SIZE != 1
+	/* example: float4 */
+	#undef FLOAT_TYPE_NAME
+	#define FLOAT_TYPE_NAME JOIN(float, VECTOR_SIZE)
 
-/* example: int4 */
-#undef INT_TYPE_NAME
-#define INT_TYPE_NAME JOIN(int, VECTOR_SIZE)
+	/* example: int4 */
+	#undef INT_TYPE_NAME
+	#define INT_TYPE_NAME JOIN(int, VECTOR_SIZE)
 
-/* example: make_float4 */
-#define MAKE_VECTOR_FUNCTION JOIN(make_, VECTOR_TYPE_NAME)
+	/* example: make_float4 */
+	#define MAKE_VECTOR_FUNCTION JOIN(make_, VECTOR_TYPE_NAME)
 
-/* example: make_int4 */
-#define MAKE_INT_VECTOR_FUNCTION JOIN(make_, INT_TYPE_NAME)
+	/* example: make_int4 */
+	#define MAKE_INT_VECTOR_FUNCTION JOIN(make_, INT_TYPE_NAME)
 
-/* example: make_int4 */
-#define MAKE_FLOAT_VECTOR_FUNCTION JOIN(make_, FLOAT_TYPE_NAME)
+	/* example: make_int4 */
+	#define MAKE_FLOAT_VECTOR_FUNCTION JOIN(make_, FLOAT_TYPE_NAME)
 
-/* example: make_int4 */
-#define MAKE_MASK_FUNCTION JOIN(make_, MASK_TYPE_NAME)
+	/* example: make_int4 */
+	#define MAKE_MASK_FUNCTION JOIN(make_, MASK_TYPE_NAME)
+#endif
 
 /* example: test_float4 */
 #define TEST_FUNCTION_NAME_TYPE JOIN(vector_test_, VECTOR_TYPE_NAME)
@@ -67,7 +60,9 @@
  * ignore values for nonexistent members */
 
 #undef MAKE_VECTOR_PARAMS
-#if VECTOR_SIZE==2
+#if VECTOR_SIZE==1
+#define MAKE_VECTOR_PARAMS(a,b,c,d) ((VECTOR_TYPE)a)
+#elif VECTOR_SIZE==2
 #define MAKE_VECTOR_PARAMS(a,b,c,d) ((VECTOR_TYPE)a, (VECTOR_TYPE)b)
 #elif VECTOR_SIZE==3
 #define MAKE_VECTOR_PARAMS(a,b,c,d) ((VECTOR_TYPE)a, (VECTOR_TYPE)b, (VECTOR_TYPE)c)
@@ -76,9 +71,6 @@
 #else
 #error invalid VECTOR_SIZE
 #endif
-
-#undef VERIFY
-#define VERIFY(actual, expect) test_assert_equal((actual), (expect))
 
 /* verify the values of vector members, ignore checks of members that don't exist */
 
@@ -397,29 +389,29 @@ TEST_FUNCTION(shuffle)
 	VECTOR_TYPE_NAME t0;
 
 #if VECTOR_SIZE == 2
-	t0 = shuffle<1, 0>(n0);
+	t0 = S_yx(n0);
 
 	VERIFY_X(t0, 3);
 	VERIFY_Y(t0, 2);
 #elif VECTOR_SIZE == 3
-	t0 = shuffle<2, 0, 1>(n0);
+	t0 = S_zxy(n0);
 
 	VERIFY_X(t0, 4);
 	VERIFY_Y(t0, 2);
 	VERIFY_Z(t0, 3);
 #elif VECTOR_SIZE == 4
-	t0 = shuffle<2, 3, 0, 1>(n0);
+	t0 = S_zwxy(n0);
 	VERIFY_XYZW(t0, 4, 5, 2, 3);
 
 	/* test SSE3 template specializations */
 
-	t0 = shuffle<0, 0, 2, 2>(n0);
+	t0 = S_xxzz(n0);
 	VERIFY_XYZW(t0, 2, 2, 4, 4);
 
-	t0 = shuffle<1, 1, 3, 3>(n0);
+	t0 = S_yyww(n0);
 	VERIFY_XYZW(t0, 3, 3, 5, 5);
 
-	t0 = shuffle<0, 1, 0, 1>(n0);
+	t0 = S_xyxy(n0);
 	VERIFY_XYZW(t0, 2, 3, 2, 3);
 #endif
 }
@@ -574,3 +566,46 @@ TEST_FUNCTION(cross)
 {
 
 }
+
+/* scalar tests are done in VECTOR_SIZE == 3 case,
+ * because most cases of just one size of vector being supported is type3 */
+
+TEST_FUNCTION(float_as_int)
+{
+#if defined VECTOR_IS_FLOAT && VECTOR_SIZE == 3
+	union {
+		float f;
+		int i;
+	} expect;
+	union {
+		float f;
+		int i;
+	} actual;
+
+	for (int bit = -1; bit < 32; ++bit) {
+		expect.i = bit >= 0 ? 1 << bit : 0;
+		actual.i = __float_as_int(expect.f);
+		VERIFY(actual.i, expect.i);
+	}
+#endif
+}
+
+TEST_FUNCTION(int_as_float)
+{
+#if defined VECTOR_IS_FLOAT && VECTOR_SIZE == 3
+	union {
+		float f;
+		int i;
+	} expect;
+	union {
+		float f;
+		int i;
+	} actual;
+
+	expect.f = 1.0f;
+	actual.f = __int_as_float(expect.i);
+
+	VERIFY(actual.i, expect.i);
+#endif
+}
+

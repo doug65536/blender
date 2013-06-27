@@ -255,12 +255,40 @@ __forceinline __m128i sse_invert_epi32(const __m128i a)
 	return _mm_xor_si128(a, _mm_cmpeq_epi32(a, a));
 }
 
+/* 32 bit integer multiply helper */
+
+__forceinline __m128i sse_mul_32(const __m128i a, const __m128i b)
+{
+#if defined __KERNEL_SSE4__
+	return _mm_mullo_epi32(a, b);
+#else
+	/* get y and w into separate registers */
+	__m128i t0 = _mm_srli_si128(a, 4);
+	__m128i t1 = _mm_srli_si128(b, 4);
+
+	/* do x and z */
+	__m128i t2 = _mm_mul_epu32(a, b);
+
+	/* do y and w */
+	__m128i t3 = _mm_mul_epu32(t0, t1);
+
+	/* move z into second element */
+	t2 = _mm_shuffle_epi32(t2, _MM_SHUFFLE (0,0,2,0));
+
+	/* move w into second element */
+	t3 = _mm_shuffle_epi32(t3, _MM_SHUFFLE (0,0,2,0));
+
+	/* interleave results */
+	return _mm_unpacklo_epi32(t2, t3);
+#endif
+}
+
 /* helper macros for missing intrinsics */
 #define _mm_cmple_epi32(a,b) sse_invert_epi32(_mm_cmpgt_epi32((a),(b)));
 #define _mm_cmpne_epi32(a,b) sse_invert_epi32(_mm_cmpeq_epi32((a),(b)));
 #define _mm_cmpge_epi32(a,b) sse_invert_epi32(_mm_cmplt_epi32((a),(b)));
 
-/* unsigned 32 bit comparison helpers */
+/* unsigned 32 bit comparison helper */
 
 /* note for SSE optimizations here:
  * there are no unsigned comparisons, so MIN_INT is added to both operands */
@@ -1542,7 +1570,14 @@ __device_inline uint3 clamp(uint3 a, uint3 mn, uint3 mx)
 
 __device_inline uint3 operator-(const uint3 a)
 {
+#ifdef __KERNEL_SSE__
+	/* to negate, invert all bits and add one (subtract -1) */
+	__m128i allones = _mm_cmpeq_epi32(a, a);
+	__m128i t = _mm_xor_si128(a, allones);
+	return _mm_sub_epi32(t, allones);
+#else
 	return make_uint3(-a.x, -a.y, -a.z);
+#endif
 }
 
 __device_inline uint3 operator*(const uint3 a, const uint3 b)
@@ -1557,7 +1592,11 @@ __device_inline uint3 operator*(const uint3 a, uint f)
 
 __device_inline uint3 operator*(uint f, const uint3 a)
 {
+#if defined __KERNEL_SSE__
+	return sse_mul_32(_mm_set1_epi32(f), a);
+#else
 	return make_uint3(a.x*f, a.y*f, a.z*f);
+#endif
 }
 
 __device_inline uint3 operator/(uint f, const uint3 a)
@@ -1709,27 +1748,8 @@ __device_inline uint4 operator-(const uint4 a)
 
 __device_inline uint4 operator*(const uint4 a, const uint4 b)
 {
-#if defined __KERNEL_SSE4__
-	return _mm_mullo_epi32(a, b);
-#elif defined __KERNEL_SSE__
-	/* get y and w into separate registers */
-	__m128i t0 = _mm_srli_si128(a, 4);
-	__m128i t1 = _mm_srli_si128(b, 4);
-
-	/* do x and z */
-	__m128i t2 = _mm_mul_epu32(a, b);
-
-	/* do y and w */
-	__m128i t3 = _mm_mul_epu32(t0, t1);
-
-	/* move z into second element */
-	t2 = _mm_shuffle_epi32(t2, _MM_SHUFFLE (0,0,2,0));
-
-	/* move w into second element */
-	t3 = _mm_shuffle_epi32(t3, _MM_SHUFFLE (0,0,2,0));
-
-	/* interleave results */
-	return _mm_unpacklo_epi32(t2, t3);
+#if defined __KERNEL_SSE__
+	return sse_mul_32(a, b);
 #else
 	return make_uint4(a.x*b.x, a.y*b.y, a.z*b.z, a.w*b.w);
 #endif
@@ -1738,7 +1758,7 @@ __device_inline uint4 operator*(const uint4 a, const uint4 b)
 __device_inline uint4 operator*(const uint4 a, uint f)
 {
 #if defined __KERNEL_SSE__
-	return a * make_uint4(f);
+	return sse_mul_32(a, _mm_set1_epi32(f));
 #else
 	return make_uint4(a.x*f, a.y*f, a.z*f, a.w*f);
 #endif
@@ -2046,11 +2066,19 @@ __device_inline int3 clamp(int3 a, int3 mn, int3 mx)
 
 __device_inline int3 operator-(const int3 a)
 {
+#ifdef __KERNEL_SSE__
+	/* to negate, invert all bits and add one (subtract -1) */
+	__m128i allones = _mm_cmpeq_epi32(a, a);
+	__m128i t = _mm_xor_si128(a, allones);
+	return _mm_sub_epi32(t, allones);
+#else
 	return make_int3(-a.x, -a.y, -a.z);
+#endif
 }
 
 __device_inline int3 operator*(const int3 a, const int3 b)
 {
+
 	return make_int3(a.x*b.x, a.y*b.y, a.z*b.z);
 }
 
@@ -2061,7 +2089,11 @@ __device_inline int3 operator*(const int3 a, int f)
 
 __device_inline int3 operator*(int f, const int3 a)
 {
+#if defined __KERNEL_SSE__
+	return sse_mul_32(_mm_set1_epi32(f), a);
+#else
 	return make_int3(a.x*f, a.y*f, a.z*f);
+#endif
 }
 
 __device_inline int3 operator/(int f, const int3 a)
@@ -2195,12 +2227,23 @@ __device_inline int4 clamp(const int4 a, const int4 mn, const int4 mx)
 
 __device_inline int4 operator-(const int4 a)
 {
+#ifdef __KERNEL_SSE__
+	/* to negate, invert all bits and add one (subtract -1) */
+	__m128i allones = _mm_cmpeq_epi32(a, a);
+	__m128i t = _mm_xor_si128(a, allones);
+	return _mm_sub_epi32(t, allones);
+#else
 	return make_int4(-a.x, -a.y, -a.z, -a.w);
+#endif
 }
 
 __device_inline int4 operator*(const int4 a, const int4 b)
 {
+#if defined __KERNEL_SSE__
+	return sse_mul_32(a, b);
+#else
 	return make_int4(a.x*b.x, a.y*b.y, a.z*b.z, a.w*b.w);
+#endif
 }
 
 __device_inline int4 operator*(const int4 a, int f)
@@ -2230,71 +2273,86 @@ __device_inline int4 operator/(const int4 a, const int4 b)
 
 __device_inline int4 operator+(const int4 a, const int4 b)
 {
+#ifdef __KERNEL_SSE__
+	return _mm_add_epi32(a, b);
+#else
 	return make_int4(a.x+b.x, a.y+b.y, a.z+b.z, a.w+b.w);
+#endif
 }
 
 __device_inline int4 operator-(const int4 a, const int4 b)
 {
+#ifdef __KERNEL_SSE__
+	return _mm_sub_epi32(a, b);
+#else
 	return make_int4(a.x-b.x, a.y-b.y, a.z-b.z, a.w-b.w);
+#endif
 }
 
-__device_inline int4 operator>>(int4& a, uchar f)
+__device_inline int4 operator>>(const int4 a, const uchar f)
 {
+#ifdef __KERNEL_SSE__
+	return _mm_srai_epi32(a, f);
+#else
 	return make_int4(a.x >> f, a.y >> f, a.z >> f, a.w >> f);
+#endif
 }
 
-__device_inline int4 operator<<(int4& a, uchar f)
+__device_inline int4 operator<<(const int4 a, const uchar f)
 {
+#ifdef __KERNEL_SSE__
+	return _mm_slli_epi32(a, f);
+#else
 	return make_int4(a.x << f, a.y << f, a.z << f, a.w << f);
+#endif
 }
 
-__device_inline int4 operator>>=(int4& a, uchar f)
+__device_inline int4& operator>>=(int4& a, uchar f)
 {
 	return a = a >> f;
 }
 
-__device_inline int4 operator<<=(int4& a, uchar f)
+__device_inline int4& operator<<=(int4& a, uchar f)
 {
 	return a = a << f;
 }
 
-__device_inline int4 operator+=(int4& a, const int4 b)
+__device_inline int4& operator+=(int4& a, const int4 b)
 {
 	return a = a + b;
 }
 
-__device_inline int4 operator+=(int4& a, const int b)
+__device_inline int4& operator+=(int4& a, const int b)
 {
 	return a = a + make_int4(b);
 }
 
-__device_inline int4 operator-=(int4& a, const int4 b)
+__device_inline int4& operator-=(int4& a, const int4 b)
 {
 	return a = a - b;
 }
 
-__device_inline int4 operator-=(int4& a, const int b)
+__device_inline int4& operator-=(int4& a, const int b)
 {
 	return a = a - make_int4(b);
 }
 
-__device_inline int4 operator*=(int4& a, const int4 b)
+__device_inline int4& operator*=(int4& a, const int4 b)
 {
-	a = a * b;
-	return a;
+	return a = a * b;
 }
 
-__device_inline int4 operator*=(int4& a, int f)
+__device_inline int4& operator*=(int4& a, int f)
 {
 	return a = a * f;
 }
 
-__device_inline int4 operator/=(int4& a, const int4 b)
+__device_inline int4& operator/=(int4& a, const int4 b)
 {
 	return a = a / b;
 }
 
-__device_inline int4 operator/=(int4& a, int f)
+__device_inline int4& operator/=(int4& a, int f)
 {
 	return a = a / f;
 }
@@ -2489,7 +2547,7 @@ __device_inline float3 copysignf(const float3 a, const float3 b)
     __m128 signmask = _mm_castsi128_ps(_mm_set1_epi32(0x80000000));
 	__m128 abs_a = _mm_andnot_ps(signmask, a);
 	__m128 signs = _mm_and_ps(signmask, b);
-    return float3(_mm_or_ps(abs_a, signs));
+	return _mm_or_ps(abs_a, signs);
 #else
 	return float3(
 		copysign(a.x, b.x),
@@ -2505,7 +2563,7 @@ __device_inline float4 copysignf(const float4 a, const float4 b)
     __m128 signmask = _mm_castsi128_ps(_mm_set1_epi32(0x80000000));
 	__m128 abs_a = _mm_andnot_ps(signmask, a);
 	__m128 signs = _mm_and_ps(signmask, b);
-	return float4(_mm_or_ps(abs_a, signs));
+	return _mm_or_ps(abs_a, signs);
 #else
     float4 r;
     r.x = copysign(a.x, b.x);
@@ -2544,29 +2602,28 @@ __device_inline float3 rcp(const float3 a)
 {
 #if defined __KERNEL_SSE4__
 	/* preserve a.w */
-	__m128 w = a;
-	__m128 t = _mm_insert_ps(a, _mm_set_ss(1.0f), 3 << 4);
-	__m128 r = _mm_rcp_ps(t);
+	__m128 r = _mm_rcp_ps(a);
 
 	// extra precision
-	r = _mm_sub_ss(_mm_add_ss(r, r), _mm_mul_ss(_mm_mul_ss(r, r), t));
+	//r = _mm_sub_ps(_mm_add_ps(r, r), _mm_mul_ps(_mm_mul_ps(r, r), t));
 
-	return _mm_blend_ps(r, w, 1 << 3);
+	return r;
+
+	//return _mm_blend_ps(r, w, 1 << 3);
 #elif defined __KERNEL_SSE__
-	/* FIXME: preserve w */
 	/* get 1.0 into high part */
-	__m128i highmask = _mm_cvtsi32_si128(0xFFFFFFFF);
-	highmask = _mm_shuffle_epi32(highmask, _MM_SHUFFLE(0, 1, 1, 1));
+	__m128 highmask = _mm_castsi128_ps(_mm_cvtsi32_si128(0xFFFFFFFF));
+	highmask = _mm_shuffle_ps(highmask, highmask, _MM_SHUFFLE(0, 1, 1, 1));
 	__m128 highone = _mm_set_ss(1.0f);
 	highone = _mm_shuffle_ps(highone, highone, _MM_SHUFFLE(0, 1, 1, 1));
 
-	__m128 t = _mm_andnot_ps(_mm_castsi128_ps(highmask), a);
+	__m128 t = _mm_andnot_ps(highmask, a);
 	t = _mm_or_ps(t, highone);
 
 	__m128 r = _mm_rcp_ps(t);
 
 	// extra precision
-	r = _mm_sub_ss(_mm_add_ss(r, r), _mm_mul_ss(_mm_mul_ss(r, r), t));
+	//r = _mm_sub_ps(_mm_add_ps(r, r), _mm_mul_ps(_mm_mul_ps(r, r), t));
 
 	return r;
 #else
@@ -2601,7 +2658,7 @@ __device_inline float3 operator-(const float3 a)
 {
 #ifdef __KERNEL_SSE__
 	__m128 signbits = _mm_castsi128_ps(_mm_set1_epi32(0x80000000));
-	return float3(_mm_xor_ps(a, signbits));
+	return _mm_xor_ps(a, signbits);
 #else
 	return make_float3(-a.x, -a.y, -a.z);
 #endif
@@ -2610,7 +2667,7 @@ __device_inline float3 operator-(const float3 a)
 __device_inline float3 operator*(const float3 a, const float3 b)
 {
 #ifdef __KERNEL_SSE__
-	return float3(_mm_mul_ps(a, b));
+	return _mm_mul_ps(a, b);
 #else
 	return make_float3(a.x*b.x, a.y*b.y, a.z*b.z);
 #endif
@@ -2619,7 +2676,7 @@ __device_inline float3 operator*(const float3 a, const float3 b)
 __device_inline float3 operator*(const float3 a, float f)
 {
 #ifdef __KERNEL_SSE__
-	return float3(_mm_mul_ps(a, _mm_set1_ps(f)));
+	return _mm_mul_ps(a, _mm_set1_ps(f));
 #else
 	return make_float3(a.x*f, a.y*f, a.z*f);
 #endif
@@ -2628,7 +2685,7 @@ __device_inline float3 operator*(const float3 a, float f)
 __device_inline float3 operator*(float f, const float3 a)
 {
 #ifdef __KERNEL_SSE__
-	return float3(_mm_mul_ps(_mm_set1_ps(f), a));
+	return _mm_mul_ps(_mm_set1_ps(f), a);
 #else
 	return make_float3(a.x*f, a.y*f, a.z*f);
 #endif
@@ -2666,7 +2723,7 @@ __device_inline float3 operator/(const float3 a, const float3 b)
 __device_inline float3 operator+(const float3 a, const float3 b)
 {
 #ifdef __KERNEL_SSE__
-	return float3(_mm_add_ps(a, b));
+	return _mm_add_ps(a, b);
 #else
 	return make_float3(a.x+b.x, a.y+b.y, a.z+b.z);
 #endif
@@ -2675,7 +2732,7 @@ __device_inline float3 operator+(const float3 a, const float3 b)
 __device_inline float3 operator-(const float3 a, const float3 b)
 {
 #ifdef __KERNEL_SSE__
-	return float3(_mm_sub_ps(a, b));
+	return _mm_sub_ps(a, b);
 #else
 	return make_float3(a.x-b.x, a.y-b.y, a.z-b.z);
 #endif
@@ -2876,8 +2933,7 @@ __device_inline float3 float2_to_float3(const float2 a)
 __device_inline float3 float4_to_float3(const float4 a)
 {
 #ifdef __KERNEL_SSE__
-	__m128 t = _mm_and_ps(a, _mm_castsi128_ps(_mm_set_epi32(0, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF)));
-	return float3(t);
+	return a.m128;
 #else
 	return make_float3(a.x, a.y, a.z);
 #endif
@@ -2885,7 +2941,9 @@ __device_inline float3 float4_to_float3(const float4 a)
 
 __device_inline float4 float3_to_float4(const float3 a)
 {
-#ifdef __KERNEL_SSE__
+#if defined __KERNEL_SSE4__
+	return _mm_insert_ps(a, _mm_set_ss(1.0f), 3 << 4);
+#elif defined __KERNEL_SSE__
 	__m128 mask = _mm_castsi128_ps(_mm_set_epi32(0xFFFFFFFF, 0, 0, 0));
 	__m128 high1 = _mm_set_ps(1.0f, 0.0f, 0.0f, 0.0f);
 	return _mm_or_ps(high1, _mm_andnot_ps(mask, a));
@@ -2906,7 +2964,8 @@ __device_inline float rcp(float a)
 #ifdef __KERNEL_SSE__
 	__m128 ta = _mm_set_ss(a);
 	float3 r = _mm_rcp_ss(ta);
-	return _mm_cvtss_f32(_mm_sub_ss(_mm_add_ss(r, r), _mm_mul_ss(_mm_mul_ss(r, r), ta)));
+	return _mm_cvtss_f32(r);
+	//return _mm_cvtss_f32(_mm_sub_ps(_mm_add_ps(r, r), _mm_mul_ps(_mm_mul_ps(r, r), ta)));
 #else
 	return 1.0f/a;
 #endif
@@ -3126,7 +3185,8 @@ __device_inline float4 rcp(const float4 a)
 {
 #ifdef __KERNEL_SSE__
 	float4 r = _mm_rcp_ps(a.m128);
-	return _mm_sub_ps(_mm_add_ps(r, r), _mm_mul_ps(_mm_mul_ps(r, r), a));
+	return r;
+	//return _mm_sub_ps(_mm_add_ps(r, r), _mm_mul_ps(_mm_mul_ps(r, r), a));
 #else
 	return make_float4(1.0f/a.x, 1.0f/a.y, 1.0f/a.z, 1.0f/a.w);
 #endif
@@ -3297,8 +3357,8 @@ __device_inline float4 normalize(const float4 a)
 __device_inline float4 reduce_min(const float4 a)
 {
 #ifdef __KERNEL_SSE__
-	float4 h = min(shuffle<1,0,3,2>(a), a);
-	return min(shuffle<2,3,0,1>(h), h);
+	float4 h = min(S_yxwz(a), a);
+	return min(S_zwxy(h), h);
 #else
 	return make_float4(min(min(a.x, a.y), min(a.z, a.w)));
 #endif
@@ -3357,16 +3417,18 @@ __device_inline void print_int4(const char *label, const int4 a)
 
 __device_inline int as_int(uint i)
 {
-	union { uint ui; int i; } u;
-	u.ui = i;
-	return u.i;
+	return (int)i;
+	//union { uint ui; int i; } u;
+	//u.ui = i;
+	//return u.i;
 }
 
 __device_inline uint as_uint(int i)
 {
-	union { uint ui; int i; } u;
-	u.i = i;
-	return u.ui;
+	return (uint)i;
+	//union { uint ui; int i; } u;
+	//u.i = i;
+	//return u.ui;
 }
 
 __device_inline uint as_uint(float f)
@@ -3378,16 +3440,24 @@ __device_inline uint as_uint(float f)
 
 __device_inline int __float_as_int(float f)
 {
+#ifdef __KERNEL_SSE__
+	return _mm_cvtsi128_si32(_mm_castps_si128(_mm_set_ss(f)));
+#else
 	union { int i; float f; } u;
 	u.f = f;
 	return u.i;
+#endif
 }
 
 __device_inline float __int_as_float(int i)
 {
+#ifdef __KERNEL_SSE__
+	return _mm_cvtss_f32(_mm_castsi128_ps(_mm_cvtsi32_si128(i)));
+#else
 	union { int i; float f; } u;
 	u.i = i;
 	return u.f;
+#endif
 }
 
 __device_inline uint __float_as_uint(float f)
@@ -3399,9 +3469,13 @@ __device_inline uint __float_as_uint(float f)
 
 __device_inline float __uint_as_float(uint i)
 {
+#ifdef __KERNEL_SSE__
+	return _mm_cvtss_f32(_mm_castsi128_ps(_mm_cvtsi32_si128((int)i)));
+#else
 	union { uint i; float f; } u;
 	u.i = i;
 	return u.f;
+#endif
 }
 
 /* Interpolation */

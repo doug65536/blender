@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE QtCreatorProject>
-<!-- Written by QtCreator 2.7.1, 2013-06-26T03:45:11. -->
+<!-- Written by QtCreator 2.7.1, 2013-06-27T05:58:03. -->
 <qtcreator>
  <data>
   <variable>ProjectExplorer.Project.ActiveTarget</variable>
@@ -343,9 +343,11 @@
     </valuelist>
     <value type="int" key="CMakeProjectManager.BaseEnvironmentBase">2</value>
     <value type="QString" key="CMakeProjectManager.CMakeRunConfiguation.Title">blender</value>
-    <value type="QString" key="CMakeProjectManager.CMakeRunConfiguration.Arguments"></value>
+    <value type="QString" key="CMakeProjectManager.CMakeRunConfiguration.Arguments">-b /home/doug/code/blender/testfiles/cycles/default_cube.blend --render-frame 1</value>
     <value type="bool" key="CMakeProjectManager.CMakeRunConfiguration.UseTerminal">false</value>
-    <valuelist type="QVariantList" key="CMakeProjectManager.CMakeRunConfiguration.UserEnvironmentChanges"/>
+    <valuelist type="QVariantList" key="CMakeProjectManager.CMakeRunConfiguration.UserEnvironmentChanges">
+     <value type="QString">DISPLAY=none</value>
+    </valuelist>
     <value type="QString" key="CMakeProjectManager.CMakeRunConfiguration.UserWorkingDirectory"></value>
     <value type="QString" key="ProjectExplorer.ProjectConfiguration.DefaultDisplayName">blender</value>
     <value type="QString" key="ProjectExplorer.ProjectConfiguration.DisplayName"></value>

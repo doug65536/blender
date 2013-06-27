@@ -72,7 +72,7 @@ protected:
 	/* compute the number of blocks occupied for each dimension. */
 	__forceinline float4 blocks(const int4& a) const
 	{
-		return make_float4((a + make_int4((1 << LOG_BLOCK_SIZE)-1)) >> LOG_BLOCK_SIZE);
+		return convert_float4((a + make_int4((1 << LOG_BLOCK_SIZE)-1)) >> LOG_BLOCK_SIZE);
 	}
 
 	/* compute the number of blocks occupied in one dimension. */

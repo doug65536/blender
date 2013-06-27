@@ -38,13 +38,13 @@
 #define __constant
 
 #if defined(_WIN32) && !defined(FREE_WINDOWS)
-#define __device_inline static __forceinline
+#define __device_inline static inline //__forceinline
 #define __align(...) __declspec(align(__VA_ARGS__))
 #define __may_alias
 #else
-#define __device_inline static inline __attribute__((always_inline))
+#define __device_inline static inline //__attribute__((always_inline))
 #ifndef FREE_WINDOWS64
-#define __forceinline inline __attribute__((always_inline))
+#define __forceinline inline //__attribute__((always_inline))
 #endif
 #define __align(...) __attribute__((aligned(__VA_ARGS__)))
 #define __may_alias __attribute__((__may_alias__))
@@ -206,7 +206,7 @@ struct __align(2) uchar2 {
 	__forceinline uchar2(uchar x, uchar y) : x(x), y(y) {}
 	__forceinline uchar operator[](int i) const { return *(&x + i); }
 	__forceinline uchar& operator[](int i) { return *(&x + i); }
-	__forceinline operator bool() { return x && y; }
+	//__forceinline operator bool() { return x && y; }
 };
 
 struct __align(4) uchar3 {
@@ -219,7 +219,7 @@ struct __align(4) uchar3 {
 	__forceinline uchar3(uchar x, uchar y, uchar z) : x(x), y(y), z(z) {}
 	__forceinline uchar operator[](int i) const { return *(&x + i); }
 	__forceinline uchar& operator[](int i) { return *(&x + i); }
-	__forceinline operator bool() { return x && y && z; }
+	//__forceinline operator bool() { return x && y && z; }
 };
 
 struct __align(4) uchar4 {
@@ -233,7 +233,7 @@ struct __align(4) uchar4 {
 	__forceinline uchar4(uchar x, uchar y, uchar z, uchar w) : x(x), y(y), z(z), w(w) {}
 	__forceinline uchar operator[](int i) const { return *(&x + i); }
 	__forceinline uchar& operator[](int i) { return *(&x + i); }
-	__forceinline operator bool() const { return x && y && z && w; }
+	//__forceinline operator bool() const { return x && y && z && w; }
 };
 
 struct __align(8) int2 {
@@ -246,7 +246,7 @@ struct __align(8) int2 {
 	__forceinline int2(int x, int y) : x(x), y(y) {}
 	__forceinline int operator[](int i) const { return *(&x + i); }
 	__forceinline int& operator[](int i) { return *(&x + i); }
-	__forceinline operator bool() const { return x && y; }
+	//__forceinline operator bool() const { return x && y; }
 };
 
 struct SSE_ALIGN int3 {
@@ -277,14 +277,14 @@ struct SSE_ALIGN int3 {
 	__forceinline operator __m128i&(void) { return m128; }
 
 
-	__forceinline operator bool() const
-	{
-		return _mm_movemask_epi8(_mm_cmpeq_epi32(m128, _mm_setzero_si128())) == 0;
-	}
+	//__forceinline operator bool() const
+	//{
+	//	return _mm_movemask_epi8(_mm_cmpeq_epi32(m128, _mm_setzero_si128())) == 0;
+	//}
 #else
 	__forceinline explicit int3(int n) : x(n), y(n), z(n) {}
 	__forceinline int3(int x, int y, int z) : x(x), y(y), z(z) {}
-	__forceinline operator bool() const { return x && y && z; }
+	//__forceinline operator bool() const { return x && y && z; }
 #endif
 
 	__forceinline int operator[](int i) const { return *(&x + i); }
@@ -330,19 +330,24 @@ struct SSE_ALIGN int4 {
 	__forceinline operator const __m128i&(void) const { return m128; }
 	__forceinline operator __m128i&(void) { return m128; }
 
-	__forceinline operator bool() const
-	{
-		return _mm_movemask_epi8(_mm_cmpeq_epi32(m128, _mm_setzero_si128())) == 0;
-	}
+	//__forceinline operator bool() const
+	//{
+	//	return _mm_movemask_epi8(_mm_cmpeq_epi32(m128, _mm_setzero_si128())) == 0;
+	//}
 #else
 	__forceinline explicit int4(int n) : x(n), y(n), z(n), w(n) {}
 	__forceinline int4(int x, int y, int z, int w) : x(x), y(y), z(z), w(w) {}
 	__forceinline int4(const int3 &a, int w) : x(a.x), y(a.y), z(a.z), w(w) {}
-	__forceinline operator bool() const { return x && y && z && w; }
+	//__forceinline operator bool() const { return x && y && z && w; }
 #endif
 
+#if defined __GNUC___ && defined __KERNEL_SSE__
+	__forceinline int operator[](int i) const { return x[i]; }
+	__forceinline int& operator[](int i) { return x[i]; }
+#else
 	__forceinline int operator[](int i) const { return *(&x + i); }
 	__forceinline int& operator[](int i) { return *(&x + i); }
+#endif
 };
 
 struct __align(8) uint2 {
@@ -355,7 +360,7 @@ struct __align(8) uint2 {
 	__forceinline uint2(uint x, uint y) : x(x), y(y) {}
 	__forceinline uint operator[](uint i) const { return *(&x + i); }
 	__forceinline uint& operator[](uint i) { return *(&x + i); }
-	__forceinline operator bool() const { return x && y; }
+	//__forceinline operator bool() const { return x && y; }
 };
 
 struct SSE_ALIGN uint3 {
@@ -385,14 +390,14 @@ struct SSE_ALIGN uint3 {
     __forceinline operator const __m128i&(void) const { return m128; }
     __forceinline operator __m128i&(void) { return m128; }
 
-	__forceinline operator bool() const
-	{
-		return (_mm_movemask_epi8(_mm_cmpeq_epi32(m128, _mm_setzero_si128())) & 0xFFF) == 0;
-	}
+	//__forceinline operator bool() const
+	//{
+	//	return (_mm_movemask_epi8(_mm_cmpeq_epi32(m128, _mm_setzero_si128())) & 0xFFF) == 0;
+	//}
 #else
 	__forceinline explicit uint3(uint n) : x(n), y(n), z(n) {}
 	__forceinline uint3(uint x, uint y, uint z) : x(x), y(y), z(z) {}
-	__forceinline operator bool() const { return x && y && z; }
+	//__forceinline operator bool() const { return x && y && z; }
 #endif
 
 	__forceinline uint operator[](int i) const { return *(&x + i); }
@@ -438,15 +443,15 @@ struct SSE_ALIGN uint4 {
     __forceinline operator const __m128i&(void) const { return m128; }
     __forceinline operator __m128i&(void) { return m128; }
 
-	__forceinline operator bool() const
-	{
-		return _mm_movemask_epi8(_mm_cmpeq_epi32(m128, _mm_setzero_si128())) == 0;
-	}
+	//__forceinline operator bool() const
+	//{
+	//	return _mm_movemask_epi8(_mm_cmpeq_epi32(m128, _mm_setzero_si128())) == 0;
+	//}
 #else
 	__forceinline explicit uint4(uint n) : x(n), y(n), z(n), w(n) {}
 	__forceinline uint4(uint x, uint y, uint z, uint w) : x(x), y(y), z(z), w(w) {}
 	__forceinline uint4(const uint3 &a, uint w) : x(a.x), y(a.y), z(a.z), w(w) {}
-	__forceinline operator bool() const { return x && y && z && w; }
+	//__forceinline operator bool() const { return x && y && z && w; }
 #endif
 
 	__forceinline uint operator[](int i) const { return *(&x + i); }
@@ -463,7 +468,7 @@ struct __align(8) float2 {
 	__forceinline float2(float x, float y) : x(x), y(y) {}
 	__forceinline float operator[](int i) const { return *(&x + i); }
 	__forceinline float& operator[](int i) { return *(&x + i); }
-	__forceinline operator bool() const { return x && y; }
+	//__forceinline operator bool() const { return x && y; }
 };
 
 struct SSE_ALIGN float3 {
@@ -495,7 +500,7 @@ struct SSE_ALIGN float3 {
 #else
 	__forceinline explicit float3(float n) : x(n), y(n), z(n) {}
 	__forceinline float3(float x, float y, float z) : x(x), y(y), z(z) {}
-	__forceinline operator bool() const { return x && y && z; }
+	//__forceinline operator bool() const { return x && y && z; }
 #endif
 
 	__forceinline float operator[](int i) const { return *(&x + i); }
@@ -556,7 +561,7 @@ struct __align(16) float4 {
 	__forceinline explicit float4(float n) : x(n), y(n), z(n), w(n) {}
 	__forceinline float4(float x, float y, float z, float w) : x(x), y(y), z(z), w(w) {}
 	__forceinline float4(const float3 &a, float w) : x(a.x), y(a.y), z(a.z), w(w) {}
-	__forceinline operator bool() const { return x && y && z && w; }
+	//__forceinline operator bool() const { return x && y && z && w; }
 #endif
 
 	__forceinline float operator[](int i) const { return *(&x + i); }
@@ -721,7 +726,7 @@ __device_inline float4 make_float4(const float3 &a, float w)
 
 __device_inline float4 make_float4(const float3 &a)
 {
-	return float4(a);
+	return float4(a, 1.0f);
 }
 
 /* conversions */
@@ -771,7 +776,20 @@ __device_inline float4 as_float4(const int4 &a)
 #ifdef __KERNEL_SSE__
 	return _mm_castsi128_ps(a);
 #else
-	return float4(*(float4*)&a.x, *(float4*)&a.y, *(float4*)&a.z, *(float4*)&a.w);
+	union { float f; int i; } t;
+	float4 r;
+	t.i = a.x;
+	r.x = t.f;
+
+	t.i = a.y;
+	r.y = t.f;
+
+	t.i = a.z;
+	r.z = t.f;
+
+	t.i = a.w;
+	r.w = t.f;
+	return r;
 #endif
 }
 
@@ -780,7 +798,22 @@ __device_inline int4 as_int4(const float4 &a)
 #ifdef __KERNEL_SSE__
 	return _mm_castps_si128(a);
 #else
-	return int4(*(int4*)&a.x, *(int4*)&a.y, *(int4*)&a.z, *(int4*)&a.w);
+	union { float f; int i; } t;
+	int4 r;
+
+	t.f = a.x;
+	r.x = t.i;
+
+	t.f = a.y;
+	r.y = t.i;
+
+	t.f = a.z;
+	r.z = t.i;
+
+	t.f = a.w;
+	r.w = t.i;
+
+	return r;
 #endif
 }
 
@@ -958,7 +991,7 @@ __device_inline float fast_rcp(float a)
 	__m128 r = _mm_rcp_ss(ta);
 
 	// extra precision
-	r = _mm_sub_ss(_mm_add_ss(r, r), _mm_mul_ss(_mm_mul_ss(r, r), ta));
+	//r = _mm_sub_ss(_mm_add_ss(r, r), _mm_mul_ss(_mm_mul_ss(r, r), ta));
 
 	return _mm_cvtss_f32(r);
 }
@@ -967,17 +1000,12 @@ __device_inline float fast_rcp(float a)
 __device_inline float3 fast_rcp(float3 a)
 {
 #if defined __KERNEL_SSE__
-	/* Set high float to 1.0f (necessary? I'm thinking infinity case has penalty) */
-	__m128 mask = _mm_castsi128_ps(_mm_set_epi32(0xFFFFFFFF, 0, 0, 0));
-	__m128 highone = _mm_set_ps(1.0f, 0.0f, 0.0f, 0.0f);
-	a = _mm_andnot_ps(mask, a);
-	a = _mm_or_ps(highone, a);
-
 	/* compute approximate reciprocal for whole vector */
 	__m128 r = _mm_rcp_ps(a);
 
-	// extra precision
-	return _mm_sub_ps(_mm_add_ps(r, r), _mm_mul_ps(_mm_mul_ps(r, r), a));
+	//r = _mm_sub_ps(_mm_add_ps(r, r), _mm_mul_ps(_mm_mul_ps(r, r), a));
+
+	return r;
 #else
 	return float3(1.0f / a.x, 1.0f / a.y, 1.0f / a.z);
 #endif
@@ -1477,6 +1505,606 @@ static inline void free_aligned(void *ptr)
 		free(data);
 	}
 }
+
+#endif
+
+/* 2 element swizzle */
+
+#ifdef __KERNEL_OPENCL__
+#define S_xx(v) v.xx
+#define S_xy(v) v
+#define S_yx(v) v.yx
+#define S_yy(v) v.yy
+#else
+#define S_xx(v) shuffle<0, 0>(v)
+#define S_xy(v)               v
+#define S_yx(v) shuffle<1, 0>(v)
+#define S_yy(v) shuffle<1, 1>(v)
+#endif
+
+/* 3 element swizzle */
+
+#ifdef __KERNEL_OPENCL__
+
+#define S_xxx(v)  v.xxx
+#define S_xxy(v)  v.xxy
+#define S_xxz(v)  v.xxz
+#define S_xyx(v)  v.xyx
+#define S_xyy(v)  v.xyy
+#define S_xyz(v)  v
+#define S_xzx(v)  v.xzx
+#define S_xzy(v)  v.xzy
+#define S_xzz(v)  v.xzz
+#define S_yxx(v)  v.yxx
+#define S_yxy(v)  v.yxy
+#define S_yxz(v)  v.yxz
+#define S_yyx(v)  v.yyx
+#define S_yyy(v)  v.yyy
+#define S_yyz(v)  v.yyz
+#define S_yzx(v)  v.yzx
+#define S_yzy(v)  v.yzy
+#define S_yzz(v)  v.yzz
+#define S_zxx(v)  v.zxx
+#define S_zxy(v)  v.zxy
+#define S_zxz(v)  v.zxz
+#define S_zyx(v)  v.zyx
+#define S_zyy(v)  v.zyy
+#define S_zyz(v)  v.zyz
+#define S_zzx(v)  v.zzx
+#define S_zzy(v)  v.zzy
+#define S_zzz(v)  v.zzz
+
+#else
+
+#define S_xxx(v)  shuffle<0, 0, 0>(v)
+#define S_xxy(v)  shuffle<0, 0, 1>(v)
+#define S_xxz(v)  shuffle<0, 0, 2>(v)
+#define S_xyx(v)  shuffle<0, 1, 0>(v)
+#define S_xyy(v)  shuffle<0, 1, 1>(v)
+#define S_xyz(v)                   v
+#define S_xzx(v)  shuffle<0, 2, 0>(v)
+#define S_xzy(v)  shuffle<0, 2, 1>(v)
+#define S_xzz(v)  shuffle<0, 2, 2>(v)
+#define S_yxx(v)  shuffle<1, 0, 0>(v)
+#define S_yxy(v)  shuffle<1, 0, 1>(v)
+#define S_yxz(v)  shuffle<1, 0, 2>(v)
+#define S_yyx(v)  shuffle<1, 1, 0>(v)
+#define S_yyy(v)  shuffle<1, 1, 1>(v)
+#define S_yyz(v)  shuffle<1, 1, 2>(v)
+#define S_yzx(v)  shuffle<1, 2, 0>(v)
+#define S_yzy(v)  shuffle<1, 2, 1>(v)
+#define S_yzz(v)  shuffle<1, 2, 2>(v)
+#define S_zxx(v)  shuffle<2, 0, 0>(v)
+#define S_zxy(v)  shuffle<2, 0, 1>(v)
+#define S_zxz(v)  shuffle<2, 0, 2>(v)
+#define S_zyx(v)  shuffle<2, 1, 0>(v)
+#define S_zyy(v)  shuffle<2, 1, 1>(v)
+#define S_zyz(v)  shuffle<2, 1, 2>(v)
+#define S_zzx(v)  shuffle<2, 2, 0>(v)
+#define S_zzy(v)  shuffle<2, 2, 1>(v)
+#define S_zzz(v)  shuffle<2, 2, 2>(v)
+
+#endif
+
+/* 4 element swizzle */
+
+#ifdef __KERNEL_OPENCL__
+
+#define S_xxxx(v)  v.xxxx
+#define S_xxxy(v)  v.xxxy
+#define S_xxxz(v)  v.xxxz
+#define S_xxxw(v)  v.xxxw
+#define S_xxyx(v)  v.xxyx
+#define S_xxyy(v)  v.xxyy
+#define S_xxyz(v)  v.xxyz
+#define S_xxyw(v)  v.xxyw
+#define S_xxzx(v)  v.xxzx
+#define S_xxzy(v)  v.xxzy
+#define S_xxzz(v)  v.xxzz
+#define S_xxzw(v)  v.xxzw
+#define S_xxwx(v)  v.xxwx
+#define S_xxwy(v)  v.xxwy
+#define S_xxwz(v)  v.xxwz
+#define S_xxww(v)  v.xxww
+#define S_xyxx(v)  v.xyxx
+#define S_xyxy(v)  v.xyxy
+#define S_xyxz(v)  v.xyxz
+#define S_xyxw(v)  v.xyxw
+#define S_xyyx(v)  v.xyyx
+#define S_xyyy(v)  v.xyyy
+#define S_xyyz(v)  v.xyyz
+#define S_xyyw(v)  v.xyyw
+#define S_xyzx(v)  v.xyzx
+#define S_xyzy(v)  v.xyzy
+#define S_xyzz(v)  v.xyzz
+#define S_xyzw(v)  v
+#define S_xywx(v)  v.xywx
+#define S_xywy(v)  v.xywy
+#define S_xywz(v)  v.xywz
+#define S_xyww(v)  v.xyww
+#define S_xzxx(v)  v.xzxx
+#define S_xzxy(v)  v.xzxy
+#define S_xzxz(v)  v.xzxz
+#define S_xzxw(v)  v.xzxw
+#define S_xzyx(v)  v.xzyx
+#define S_xzyy(v)  v.xzyy
+#define S_xzyz(v)  v.xzyz
+#define S_xzyw(v)  v.xzyw
+#define S_xzzx(v)  v.xzzx
+#define S_xzzy(v)  v.xzzy
+#define S_xzzz(v)  v.xzzz
+#define S_xzzw(v)  v.xzzw
+#define S_xzwx(v)  v.xzwx
+#define S_xzwy(v)  v.xzwy
+#define S_xzwz(v)  v.xzwz
+#define S_xzww(v)  v.xzww
+#define S_xwxx(v)  v.xwxx
+#define S_xwxy(v)  v.xwxy
+#define S_xwxz(v)  v.xwxz
+#define S_xwxw(v)  v.xwxw
+#define S_xwyx(v)  v.xwyx
+#define S_xwyy(v)  v.xwyy
+#define S_xwyz(v)  v.xwyz
+#define S_xwyw(v)  v.xwyw
+#define S_xwzx(v)  v.xwzx
+#define S_xwzy(v)  v.xwzy
+#define S_xwzz(v)  v.xwzz
+#define S_xwzw(v)  v.xwzw
+#define S_xwwx(v)  v.xwwx
+#define S_xwwy(v)  v.xwwy
+#define S_xwwz(v)  v.xwwz
+#define S_xwww(v)  v.xwww
+#define S_yxxx(v)  v.yxxx
+#define S_yxxy(v)  v.yxxy
+#define S_yxxz(v)  v.yxxz
+#define S_yxxw(v)  v.yxxw
+#define S_yxyx(v)  v.yxyx
+#define S_yxyy(v)  v.yxyy
+#define S_yxyz(v)  v.yxyz
+#define S_yxyw(v)  v.yxyw
+#define S_yxzx(v)  v.yxzx
+#define S_yxzy(v)  v.yxzy
+#define S_yxzz(v)  v.yxzz
+#define S_yxzw(v)  v.yxzw
+#define S_yxwx(v)  v.yxwx
+#define S_yxwy(v)  v.yxwy
+#define S_yxwz(v)  v.yxwz
+#define S_yxww(v)  v.yxww
+#define S_yyxx(v)  v.yyxx
+#define S_yyxy(v)  v.yyxy
+#define S_yyxz(v)  v.yyxz
+#define S_yyxw(v)  v.yyxw
+#define S_yyyx(v)  v.yyyx
+#define S_yyyy(v)  v.yyyy
+#define S_yyyz(v)  v.yyyz
+#define S_yyyw(v)  v.yyyw
+#define S_yyzx(v)  v.yyzx
+#define S_yyzy(v)  v.yyzy
+#define S_yyzz(v)  v.yyzz
+#define S_yyzw(v)  v.yyzw
+#define S_yywx(v)  v.yywx
+#define S_yywy(v)  v.yywy
+#define S_yywz(v)  v.yywz
+#define S_yyww(v)  v.yyww
+#define S_yzxx(v)  v.yzxx
+#define S_yzxy(v)  v.yzxy
+#define S_yzxz(v)  v.yzxz
+#define S_yzxw(v)  v.yzxw
+#define S_yzyx(v)  v.yzyx
+#define S_yzyy(v)  v.yzyy
+#define S_yzyz(v)  v.yzyz
+#define S_yzyw(v)  v.yzyw
+#define S_yzzx(v)  v.yzzx
+#define S_yzzy(v)  v.yzzy
+#define S_yzzz(v)  v.yzzz
+#define S_yzzw(v)  v.yzzw
+#define S_yzwx(v)  v.yzwx
+#define S_yzwy(v)  v.yzwy
+#define S_yzwz(v)  v.yzwz
+#define S_yzww(v)  v.yzww
+#define S_ywxx(v)  v.ywxx
+#define S_ywxy(v)  v.ywxy
+#define S_ywxz(v)  v.ywxz
+#define S_ywxw(v)  v.ywxw
+#define S_ywyx(v)  v.ywyx
+#define S_ywyy(v)  v.ywyy
+#define S_ywyz(v)  v.ywyz
+#define S_ywyw(v)  v.ywyw
+#define S_ywzx(v)  v.ywzx
+#define S_ywzy(v)  v.ywzy
+#define S_ywzz(v)  v.ywzz
+#define S_ywzw(v)  v.ywzw
+#define S_ywwx(v)  v.ywwx
+#define S_ywwy(v)  v.ywwy
+#define S_ywwz(v)  v.ywwz
+#define S_ywww(v)  v.ywww
+#define S_zxxx(v)  v.zxxx
+#define S_zxxy(v)  v.zxxy
+#define S_zxxz(v)  v.zxxz
+#define S_zxxw(v)  v.zxxw
+#define S_zxyx(v)  v.zxyx
+#define S_zxyy(v)  v.zxyy
+#define S_zxyz(v)  v.zxyz
+#define S_zxyw(v)  v.zxyw
+#define S_zxzx(v)  v.zxzx
+#define S_zxzy(v)  v.zxzy
+#define S_zxzz(v)  v.zxzz
+#define S_zxzw(v)  v.zxzw
+#define S_zxwx(v)  v.zxwx
+#define S_zxwy(v)  v.zxwy
+#define S_zxwz(v)  v.zxwz
+#define S_zxww(v)  v.zxww
+#define S_zyxx(v)  v.zyxx
+#define S_zyxy(v)  v.zyxy
+#define S_zyxz(v)  v.zyxz
+#define S_zyxw(v)  v.zyxw
+#define S_zyyx(v)  v.zyyx
+#define S_zyyy(v)  v.zyyy
+#define S_zyyz(v)  v.zyyz
+#define S_zyyw(v)  v.zyyw
+#define S_zyzx(v)  v.zyzx
+#define S_zyzy(v)  v.zyzy
+#define S_zyzz(v)  v.zyzz
+#define S_zyzw(v)  v.zyzw
+#define S_zywx(v)  v.zywx
+#define S_zywy(v)  v.zywy
+#define S_zywz(v)  v.zywz
+#define S_zyww(v)  v.zyww
+#define S_zzxx(v)  v.zzxx
+#define S_zzxy(v)  v.zzxy
+#define S_zzxz(v)  v.zzxz
+#define S_zzxw(v)  v.zzxw
+#define S_zzyx(v)  v.zzyx
+#define S_zzyy(v)  v.zzyy
+#define S_zzyz(v)  v.zzyz
+#define S_zzyw(v)  v.zzyw
+#define S_zzzx(v)  v.zzzx
+#define S_zzzy(v)  v.zzzy
+#define S_zzzz(v)  v.zzzz
+#define S_zzzw(v)  v.zzzw
+#define S_zzwx(v)  v.zzwx
+#define S_zzwy(v)  v.zzwy
+#define S_zzwz(v)  v.zzwz
+#define S_zzww(v)  v.zzww
+#define S_zwxx(v)  v.zwxx
+#define S_zwxy(v)  v.zwxy
+#define S_zwxz(v)  v.zwxz
+#define S_zwxw(v)  v.zwxw
+#define S_zwyx(v)  v.zwyx
+#define S_zwyy(v)  v.zwyy
+#define S_zwyz(v)  v.zwyz
+#define S_zwyw(v)  v.zwyw
+#define S_zwzx(v)  v.zwzx
+#define S_zwzy(v)  v.zwzy
+#define S_zwzz(v)  v.zwzz
+#define S_zwzw(v)  v.zwzw
+#define S_zwwx(v)  v.zwwx
+#define S_zwwy(v)  v.zwwy
+#define S_zwwz(v)  v.zwwz
+#define S_zwww(v)  v.zwww
+#define S_wxxx(v)  v.wxxx
+#define S_wxxy(v)  v.wxxy
+#define S_wxxz(v)  v.wxxz
+#define S_wxxw(v)  v.wxxw
+#define S_wxyx(v)  v.wxyx
+#define S_wxyy(v)  v.wxyy
+#define S_wxyz(v)  v.wxyz
+#define S_wxyw(v)  v.wxyw
+#define S_wxzx(v)  v.wxzx
+#define S_wxzy(v)  v.wxzy
+#define S_wxzz(v)  v.wxzz
+#define S_wxzw(v)  v.wxzw
+#define S_wxwx(v)  v.wxwx
+#define S_wxwy(v)  v.wxwy
+#define S_wxwz(v)  v.wxwz
+#define S_wxww(v)  v.wxww
+#define S_wyxx(v)  v.wyxx
+#define S_wyxy(v)  v.wyxy
+#define S_wyxz(v)  v.wyxz
+#define S_wyxw(v)  v.wyxw
+#define S_wyyx(v)  v.wyyx
+#define S_wyyy(v)  v.wyyy
+#define S_wyyz(v)  v.wyyz
+#define S_wyyw(v)  v.wyyw
+#define S_wyzx(v)  v.wyzx
+#define S_wyzy(v)  v.wyzy
+#define S_wyzz(v)  v.wyzz
+#define S_wyzw(v)  v.wyzw
+#define S_wywx(v)  v.wywx
+#define S_wywy(v)  v.wywy
+#define S_wywz(v)  v.wywz
+#define S_wyww(v)  v.wyww
+#define S_wzxx(v)  v.wzxx
+#define S_wzxy(v)  v.wzxy
+#define S_wzxz(v)  v.wzxz
+#define S_wzxw(v)  v.wzxw
+#define S_wzyx(v)  v.wzyx
+#define S_wzyy(v)  v.wzyy
+#define S_wzyz(v)  v.wzyz
+#define S_wzyw(v)  v.wzyw
+#define S_wzzx(v)  v.wzzx
+#define S_wzzy(v)  v.wzzy
+#define S_wzzz(v)  v.wzzz
+#define S_wzzw(v)  v.wzzw
+#define S_wzwx(v)  v.wzwx
+#define S_wzwy(v)  v.wzwy
+#define S_wzwz(v)  v.wzwz
+#define S_wzww(v)  v.wzww
+#define S_wwxx(v)  v.wwxx
+#define S_wwxy(v)  v.wwxy
+#define S_wwxz(v)  v.wwxz
+#define S_wwxw(v)  v.wwxw
+#define S_wwyx(v)  v.wwyx
+#define S_wwyy(v)  v.wwyy
+#define S_wwyz(v)  v.wwyz
+#define S_wwyw(v)  v.wwyw
+#define S_wwzx(v)  v.wwzx
+#define S_wwzy(v)  v.wwzy
+#define S_wwzz(v)  v.wwzz
+#define S_wwzw(v)  v.wwzw
+#define S_wwwx(v)  v.wwwx
+#define S_wwwy(v)  v.wwwy
+#define S_wwwz(v)  v.wwwz
+#define S_wwww(v)  v.wwww
+
+#else
+
+#define S_xxxx(v)  shuffle<0,0,0,0>(v)
+#define S_xxxy(v)  shuffle<0,0,0,1>(v)
+#define S_xxxz(v)  shuffle<0,0,0,2>(v)
+#define S_xxxw(v)  shuffle<0,0,0,3>(v)
+#define S_xxyx(v)  shuffle<0,0,1,0>(v)
+#define S_xxyy(v)  shuffle<0,0,1,1>(v)
+#define S_xxyz(v)  shuffle<0,0,1,2>(v)
+#define S_xxyw(v)  shuffle<0,0,1,3>(v)
+#define S_xxzx(v)  shuffle<0,0,2,0>(v)
+#define S_xxzy(v)  shuffle<0,0,2,1>(v)
+#define S_xxzz(v)  shuffle<0,0,2,2>(v)
+#define S_xxzw(v)  shuffle<0,0,2,3>(v)
+#define S_xxwx(v)  shuffle<0,0,3,0>(v)
+#define S_xxwy(v)  shuffle<0,0,3,1>(v)
+#define S_xxwz(v)  shuffle<0,0,3,2>(v)
+#define S_xxww(v)  shuffle<0,0,3,3>(v)
+#define S_xyxx(v)  shuffle<0,1,0,0>(v)
+#define S_xyxy(v)  shuffle<0,1,0,1>(v)
+#define S_xyxz(v)  shuffle<0,1,0,2>(v)
+#define S_xyxw(v)  shuffle<0,1,0,3>(v)
+#define S_xyyx(v)  shuffle<0,1,1,0>(v)
+#define S_xyyy(v)  shuffle<0,1,1,1>(v)
+#define S_xyyz(v)  shuffle<0,1,1,2>(v)
+#define S_xyyw(v)  shuffle<0,1,1,3>(v)
+#define S_xyzx(v)  shuffle<0,1,2,0>(v)
+#define S_xyzy(v)  shuffle<0,1,2,1>(v)
+#define S_xyzz(v)  shuffle<0,1,2,2>(v)
+#define S_xyzw(v)					v
+#define S_xywx(v)  shuffle<0,1,3,0>(v)
+#define S_xywy(v)  shuffle<0,1,3,1>(v)
+#define S_xywz(v)  shuffle<0,1,3,2>(v)
+#define S_xyww(v)  shuffle<0,1,3,3>(v)
+#define S_xzxx(v)  shuffle<0,2,0,0>(v)
+#define S_xzxy(v)  shuffle<0,2,0,1>(v)
+#define S_xzxz(v)  shuffle<0,2,0,2>(v)
+#define S_xzxw(v)  shuffle<0,2,0,3>(v)
+#define S_xzyx(v)  shuffle<0,2,1,0>(v)
+#define S_xzyy(v)  shuffle<0,2,1,1>(v)
+#define S_xzyz(v)  shuffle<0,2,1,2>(v)
+#define S_xzyw(v)  shuffle<0,2,1,3>(v)
+#define S_xzzx(v)  shuffle<0,2,2,0>(v)
+#define S_xzzy(v)  shuffle<0,2,2,1>(v)
+#define S_xzzz(v)  shuffle<0,2,2,2>(v)
+#define S_xzzw(v)  shuffle<0,2,2,3>(v)
+#define S_xzwx(v)  shuffle<0,2,3,0>(v)
+#define S_xzwy(v)  shuffle<0,2,3,1>(v)
+#define S_xzwz(v)  shuffle<0,2,3,2>(v)
+#define S_xzww(v)  shuffle<0,2,3,3>(v)
+#define S_xwxx(v)  shuffle<0,3,0,0>(v)
+#define S_xwxy(v)  shuffle<0,3,0,1>(v)
+#define S_xwxz(v)  shuffle<0,3,0,2>(v)
+#define S_xwxw(v)  shuffle<0,3,0,3>(v)
+#define S_xwyx(v)  shuffle<0,3,1,0>(v)
+#define S_xwyy(v)  shuffle<0,3,1,1>(v)
+#define S_xwyz(v)  shuffle<0,3,1,2>(v)
+#define S_xwyw(v)  shuffle<0,3,1,3>(v)
+#define S_xwzx(v)  shuffle<0,3,2,0>(v)
+#define S_xwzy(v)  shuffle<0,3,2,1>(v)
+#define S_xwzz(v)  shuffle<0,3,2,2>(v)
+#define S_xwzw(v)  shuffle<0,3,2,3>(v)
+#define S_xwwx(v)  shuffle<0,3,3,0>(v)
+#define S_xwwy(v)  shuffle<0,3,3,1>(v)
+#define S_xwwz(v)  shuffle<0,3,3,2>(v)
+#define S_xwww(v)  shuffle<0,3,3,3>(v)
+#define S_yxxx(v)  shuffle<1,0,0,0>(v)
+#define S_yxxy(v)  shuffle<1,0,0,1>(v)
+#define S_yxxz(v)  shuffle<1,0,0,2>(v)
+#define S_yxxw(v)  shuffle<1,0,0,3>(v)
+#define S_yxyx(v)  shuffle<1,0,1,0>(v)
+#define S_yxyy(v)  shuffle<1,0,1,1>(v)
+#define S_yxyz(v)  shuffle<1,0,1,2>(v)
+#define S_yxyw(v)  shuffle<1,0,1,3>(v)
+#define S_yxzx(v)  shuffle<1,0,2,0>(v)
+#define S_yxzy(v)  shuffle<1,0,2,1>(v)
+#define S_yxzz(v)  shuffle<1,0,2,2>(v)
+#define S_yxzw(v)  shuffle<1,0,2,3>(v)
+#define S_yxwx(v)  shuffle<1,0,3,0>(v)
+#define S_yxwy(v)  shuffle<1,0,3,1>(v)
+#define S_yxwz(v)  shuffle<1,0,3,2>(v)
+#define S_yxww(v)  shuffle<1,0,3,3>(v)
+#define S_yyxx(v)  shuffle<1,1,0,0>(v)
+#define S_yyxy(v)  shuffle<1,1,0,1>(v)
+#define S_yyxz(v)  shuffle<1,1,0,2>(v)
+#define S_yyxw(v)  shuffle<1,1,0,3>(v)
+#define S_yyyx(v)  shuffle<1,1,1,0>(v)
+#define S_yyyy(v)  shuffle<1,1,1,1>(v)
+#define S_yyyz(v)  shuffle<1,1,1,2>(v)
+#define S_yyyw(v)  shuffle<1,1,1,3>(v)
+#define S_yyzx(v)  shuffle<1,1,2,0>(v)
+#define S_yyzy(v)  shuffle<1,1,2,1>(v)
+#define S_yyzz(v)  shuffle<1,1,2,2>(v)
+#define S_yyzw(v)  shuffle<1,1,2,3>(v)
+#define S_yywx(v)  shuffle<1,1,3,0>(v)
+#define S_yywy(v)  shuffle<1,1,3,1>(v)
+#define S_yywz(v)  shuffle<1,1,3,2>(v)
+#define S_yyww(v)  shuffle<1,1,3,3>(v)
+#define S_yzxx(v)  shuffle<1,2,0,0>(v)
+#define S_yzxy(v)  shuffle<1,2,0,1>(v)
+#define S_yzxz(v)  shuffle<1,2,0,2>(v)
+#define S_yzxw(v)  shuffle<1,2,0,3>(v)
+#define S_yzyx(v)  shuffle<1,2,1,0>(v)
+#define S_yzyy(v)  shuffle<1,2,1,1>(v)
+#define S_yzyz(v)  shuffle<1,2,1,2>(v)
+#define S_yzyw(v)  shuffle<1,2,1,3>(v)
+#define S_yzzx(v)  shuffle<1,2,2,0>(v)
+#define S_yzzy(v)  shuffle<1,2,2,1>(v)
+#define S_yzzz(v)  shuffle<1,2,2,2>(v)
+#define S_yzzw(v)  shuffle<1,2,2,3>(v)
+#define S_yzwx(v)  shuffle<1,2,3,0>(v)
+#define S_yzwy(v)  shuffle<1,2,3,1>(v)
+#define S_yzwz(v)  shuffle<1,2,3,2>(v)
+#define S_yzww(v)  shuffle<1,2,3,3>(v)
+#define S_ywxx(v)  shuffle<1,3,0,0>(v)
+#define S_ywxy(v)  shuffle<1,3,0,1>(v)
+#define S_ywxz(v)  shuffle<1,3,0,2>(v)
+#define S_ywxw(v)  shuffle<1,3,0,3>(v)
+#define S_ywyx(v)  shuffle<1,3,1,0>(v)
+#define S_ywyy(v)  shuffle<1,3,1,1>(v)
+#define S_ywyz(v)  shuffle<1,3,1,2>(v)
+#define S_ywyw(v)  shuffle<1,3,1,3>(v)
+#define S_ywzx(v)  shuffle<1,3,2,0>(v)
+#define S_ywzy(v)  shuffle<1,3,2,1>(v)
+#define S_ywzz(v)  shuffle<1,3,2,2>(v)
+#define S_ywzw(v)  shuffle<1,3,2,3>(v)
+#define S_ywwx(v)  shuffle<1,3,3,0>(v)
+#define S_ywwy(v)  shuffle<1,3,3,1>(v)
+#define S_ywwz(v)  shuffle<1,3,3,2>(v)
+#define S_ywww(v)  shuffle<1,3,3,3>(v)
+#define S_zxxx(v)  shuffle<2,0,0,0>(v)
+#define S_zxxy(v)  shuffle<2,0,0,1>(v)
+#define S_zxxz(v)  shuffle<2,0,0,2>(v)
+#define S_zxxw(v)  shuffle<2,0,0,3>(v)
+#define S_zxyx(v)  shuffle<2,0,1,0>(v)
+#define S_zxyy(v)  shuffle<2,0,1,1>(v)
+#define S_zxyz(v)  shuffle<2,0,1,2>(v)
+#define S_zxyw(v)  shuffle<2,0,1,3>(v)
+#define S_zxzx(v)  shuffle<2,0,2,0>(v)
+#define S_zxzy(v)  shuffle<2,0,2,1>(v)
+#define S_zxzz(v)  shuffle<2,0,2,2>(v)
+#define S_zxzw(v)  shuffle<2,0,2,3>(v)
+#define S_zxwx(v)  shuffle<2,0,3,0>(v)
+#define S_zxwy(v)  shuffle<2,0,3,1>(v)
+#define S_zxwz(v)  shuffle<2,0,3,2>(v)
+#define S_zxww(v)  shuffle<2,0,3,3>(v)
+#define S_zyxx(v)  shuffle<2,1,0,0>(v)
+#define S_zyxy(v)  shuffle<2,1,0,1>(v)
+#define S_zyxz(v)  shuffle<2,1,0,2>(v)
+#define S_zyxw(v)  shuffle<2,1,0,3>(v)
+#define S_zyyx(v)  shuffle<2,1,1,0>(v)
+#define S_zyyy(v)  shuffle<2,1,1,1>(v)
+#define S_zyyz(v)  shuffle<2,1,1,2>(v)
+#define S_zyyw(v)  shuffle<2,1,1,3>(v)
+#define S_zyzx(v)  shuffle<2,1,2,0>(v)
+#define S_zyzy(v)  shuffle<2,1,2,1>(v)
+#define S_zyzz(v)  shuffle<2,1,2,2>(v)
+#define S_zyzw(v)  shuffle<2,1,2,3>(v)
+#define S_zywx(v)  shuffle<2,1,3,0>(v)
+#define S_zywy(v)  shuffle<2,1,3,1>(v)
+#define S_zywz(v)  shuffle<2,1,3,2>(v)
+#define S_zyww(v)  shuffle<2,1,3,3>(v)
+#define S_zzxx(v)  shuffle<2,2,0,0>(v)
+#define S_zzxy(v)  shuffle<2,2,0,1>(v)
+#define S_zzxz(v)  shuffle<2,2,0,2>(v)
+#define S_zzxw(v)  shuffle<2,2,0,3>(v)
+#define S_zzyx(v)  shuffle<2,2,1,0>(v)
+#define S_zzyy(v)  shuffle<2,2,1,1>(v)
+#define S_zzyz(v)  shuffle<2,2,1,2>(v)
+#define S_zzyw(v)  shuffle<2,2,1,3>(v)
+#define S_zzzx(v)  shuffle<2,2,2,0>(v)
+#define S_zzzy(v)  shuffle<2,2,2,1>(v)
+#define S_zzzz(v)  shuffle<2,2,2,2>(v)
+#define S_zzzw(v)  shuffle<2,2,2,3>(v)
+#define S_zzwx(v)  shuffle<2,2,3,0>(v)
+#define S_zzwy(v)  shuffle<2,2,3,1>(v)
+#define S_zzwz(v)  shuffle<2,2,3,2>(v)
+#define S_zzww(v)  shuffle<2,2,3,3>(v)
+#define S_zwxx(v)  shuffle<2,3,0,0>(v)
+#define S_zwxy(v)  shuffle<2,3,0,1>(v)
+#define S_zwxz(v)  shuffle<2,3,0,2>(v)
+#define S_zwxw(v)  shuffle<2,3,0,3>(v)
+#define S_zwyx(v)  shuffle<2,3,1,0>(v)
+#define S_zwyy(v)  shuffle<2,3,1,1>(v)
+#define S_zwyz(v)  shuffle<2,3,1,2>(v)
+#define S_zwyw(v)  shuffle<2,3,1,3>(v)
+#define S_zwzx(v)  shuffle<2,3,2,0>(v)
+#define S_zwzy(v)  shuffle<2,3,2,1>(v)
+#define S_zwzz(v)  shuffle<2,3,2,2>(v)
+#define S_zwzw(v)  shuffle<2,3,2,3>(v)
+#define S_zwwx(v)  shuffle<2,3,3,0>(v)
+#define S_zwwy(v)  shuffle<2,3,3,1>(v)
+#define S_zwwz(v)  shuffle<2,3,3,2>(v)
+#define S_zwww(v)  shuffle<2,3,3,3>(v)
+#define S_wxxx(v)  shuffle<3,0,0,0>(v)
+#define S_wxxy(v)  shuffle<3,0,0,1>(v)
+#define S_wxxz(v)  shuffle<3,0,0,2>(v)
+#define S_wxxw(v)  shuffle<3,0,0,3>(v)
+#define S_wxyx(v)  shuffle<3,0,1,0>(v)
+#define S_wxyy(v)  shuffle<3,0,1,1>(v)
+#define S_wxyz(v)  shuffle<3,0,1,2>(v)
+#define S_wxyw(v)  shuffle<3,0,1,3>(v)
+#define S_wxzx(v)  shuffle<3,0,2,0>(v)
+#define S_wxzy(v)  shuffle<3,0,2,1>(v)
+#define S_wxzz(v)  shuffle<3,0,2,2>(v)
+#define S_wxzw(v)  shuffle<3,0,2,3>(v)
+#define S_wxwx(v)  shuffle<3,0,3,0>(v)
+#define S_wxwy(v)  shuffle<3,0,3,1>(v)
+#define S_wxwz(v)  shuffle<3,0,3,2>(v)
+#define S_wxww(v)  shuffle<3,0,3,3>(v)
+#define S_wyxx(v)  shuffle<3,1,0,0>(v)
+#define S_wyxy(v)  shuffle<3,1,0,1>(v)
+#define S_wyxz(v)  shuffle<3,1,0,2>(v)
+#define S_wyxw(v)  shuffle<3,1,0,3>(v)
+#define S_wyyx(v)  shuffle<3,1,1,0>(v)
+#define S_wyyy(v)  shuffle<3,1,1,1>(v)
+#define S_wyyz(v)  shuffle<3,1,1,2>(v)
+#define S_wyyw(v)  shuffle<3,1,1,3>(v)
+#define S_wyzx(v)  shuffle<3,1,2,0>(v)
+#define S_wyzy(v)  shuffle<3,1,2,1>(v)
+#define S_wyzz(v)  shuffle<3,1,2,2>(v)
+#define S_wyzw(v)  shuffle<3,1,2,3>(v)
+#define S_wywx(v)  shuffle<3,1,3,0>(v)
+#define S_wywy(v)  shuffle<3,1,3,1>(v)
+#define S_wywz(v)  shuffle<3,1,3,2>(v)
+#define S_wyww(v)  shuffle<3,1,3,3>(v)
+#define S_wzxx(v)  shuffle<3,2,0,0>(v)
+#define S_wzxy(v)  shuffle<3,2,0,1>(v)
+#define S_wzxz(v)  shuffle<3,2,0,2>(v)
+#define S_wzxw(v)  shuffle<3,2,0,3>(v)
+#define S_wzyx(v)  shuffle<3,2,1,0>(v)
+#define S_wzyy(v)  shuffle<3,2,1,1>(v)
+#define S_wzyz(v)  shuffle<3,2,1,2>(v)
+#define S_wzyw(v)  shuffle<3,2,1,3>(v)
+#define S_wzzx(v)  shuffle<3,2,2,0>(v)
+#define S_wzzy(v)  shuffle<3,2,2,1>(v)
+#define S_wzzz(v)  shuffle<3,2,2,2>(v)
+#define S_wzzw(v)  shuffle<3,2,2,3>(v)
+#define S_wzwx(v)  shuffle<3,2,3,0>(v)
+#define S_wzwy(v)  shuffle<3,2,3,1>(v)
+#define S_wzwz(v)  shuffle<3,2,3,2>(v)
+#define S_wzww(v)  shuffle<3,2,3,3>(v)
+#define S_wwxx(v)  shuffle<3,3,0,0>(v)
+#define S_wwxy(v)  shuffle<3,3,0,1>(v)
+#define S_wwxz(v)  shuffle<3,3,0,2>(v)
+#define S_wwxw(v)  shuffle<3,3,0,3>(v)
+#define S_wwyx(v)  shuffle<3,3,1,0>(v)
+#define S_wwyy(v)  shuffle<3,3,1,1>(v)
+#define S_wwyz(v)  shuffle<3,3,1,2>(v)
+#define S_wwyw(v)  shuffle<3,3,1,3>(v)
+#define S_wwzx(v)  shuffle<3,3,2,0>(v)
+#define S_wwzy(v)  shuffle<3,3,2,1>(v)
+#define S_wwzz(v)  shuffle<3,3,2,2>(v)
+#define S_wwzw(v)  shuffle<3,3,2,3>(v)
+#define S_wwwx(v)  shuffle<3,3,3,0>(v)
+#define S_wwwy(v)  shuffle<3,3,3,1>(v)
+#define S_wwwz(v)  shuffle<3,3,3,2>(v)
+#define S_wwww(v)  shuffle<3,3,3,3>(v)
 
 #endif
 

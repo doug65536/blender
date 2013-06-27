@@ -68,11 +68,11 @@ bool TextureMapping::skip()
 	const float3 zero = make_float3(0.0f);
 	const float3 one = make_float3(1.0f);
 
-	if(translation != zero)
+	if(is_notequal(translation, zero))
 		return false;
-	if(rotation != zero)
+	if(is_notequal(rotation, zero))
 		return false;
-	if(scale != one)
+	if(is_notequal(scale, one))
 		return false;
 	
 	if(x_mapping != X || y_mapping != Y || z_mapping != Z)

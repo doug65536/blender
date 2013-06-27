@@ -165,7 +165,7 @@ void SubdAccBuilder::computeCornerStencil(SubdFaceRing *ring, GregoryAccStencil 
 
 			for(SubdVert::EdgeIterator eit(vert->edge); !eit.isDone(); eit.advance()) {
 				SubdEdge *edge = eit.current();
-				assert(vert->co == edge->from()->co);
+				assert(is_equal(vert->co, edge->from()->co));
 
 				stencil->get(cid, edge->to()) = 12.0f;
 
@@ -317,7 +317,7 @@ void SubdAccBuilder::computeEdgeStencil(SubdFaceRing *ring, GregoryAccStencil *s
 			j = 0;
 			for(SubdVert::EdgeIterator eit(vert->edges()); !eit.isDone(); eit.advance(), j++) {
 				SubdEdge *edge = eit.current();
-				assert(vert->co == edge->from()->co);
+				assert(is_equal(vert->co, edge->from()->co));
 
 				float costerm1_a = cosf(M_PI_F * 2 * (j-i1) / valence);
 				float costerm1_b = cosf(M_PI_F * (2 * (j-i1)-1) / valence); /* -1 instead of +1 b/c of edge->next->to() */
