@@ -61,7 +61,7 @@ BVHObjectBinning::BVHObjectBinning(const BVHRange& job, BVHReference *prims)
 {
 	/* hit count for log, helps keep diff in sync and makes it easier to debug */
 	TRACE_BIN_ONLY(static int trace_bin_hit_count);
-	TRACE_BIN("Hit count = %d", ++trace_bin_hit_count);
+	TRACE_BIN("Hit count = %d\n", ++trace_bin_hit_count);
 
 	/* compute number of bins to use and precompute scaling factor for binning */
 	num_bins = min(size_t(MAX_BINS), size_t(4.0f + 0.05f*size()));
