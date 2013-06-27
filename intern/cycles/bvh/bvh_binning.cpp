@@ -29,8 +29,10 @@ CCL_NAMESPACE_BEGIN
 
 #define ENABLE_TRACE_BIN
 #ifdef ENABLE_TRACE_BIN
+#define TRACE_BIN_ONLY(e) e
 #define TRACE_BIN(...) printf(__VA_ARGS__)
 #else
+#define TRACE_BIN_ONLY(e) ((void)0)
 #define TRACE_BIN(...) ((void)0)
 #endif
 
@@ -62,6 +64,10 @@ __forceinline int get_best_dimension(const float4& bestSAH)
 BVHObjectBinning::BVHObjectBinning(const BVHRange& job, BVHReference *prims)
 : BVHRange(job), splitSAH(FLT_MAX), dim(0), pos(0)
 {
+	/* hit count for log, helps keep diff in sync and makes it easier to debug */
+	TRACE_BIN_ONLY(static int trace_bin_hit_count);
+	TRACE_BIN("Hit count = %d\n", ++trace_bin_hit_count);
+
 	/* compute number of bins to use and precompute scaling factor for binning */
 	num_bins = min(size_t(MAX_BINS), size_t(4.0f + 0.05f*size()));
 	scale = rcp(cent_bounds().size()) * make_float3((float)num_bins);
