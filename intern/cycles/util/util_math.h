@@ -3228,6 +3228,24 @@ __device_inline float4 operator-(const float4 a, const float4 b)
 #endif
 }
 
+__device_inline float4 operator^(const float4 a, const int4 b)
+{
+#ifdef __KERNEL_SSE__
+	return _mm_xor_ps(a, _mm_castsi128_ps(b));
+#else
+	union { float f; int i; } t[4];
+	t[0].f = a[0];
+	t[1].f = a[1];
+	t[2].f = a[2];
+	t[3].f = a[3];
+	t[0].i ^= b[0];
+	t[1].i ^= b[1];
+	t[2].i ^= b[2];
+	t[3].i ^= b[3];
+	return float4(t[0].f, t[1].f, t[2].f, t[3].f);
+#endif
+}
+
 __device_inline float4 operator+=(float4& a, const float4 b)
 {
 	return a = a + b;
@@ -3598,7 +3616,7 @@ __device float safe_powf(float a, float b)
 		return 1.0f;
 	if(a == 0.0f)
 		return 0.0f;
-	if(a < 0.0f && b != (int)b)
+	if(a < 0.0f && b != float_to_int(b))
 		return 0.0f;
 	
 	return compatible_powf(a, b);

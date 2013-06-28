@@ -24,7 +24,7 @@
 #include <assert.h>
 #include <stdlib.h>
 
-#endif
+#endif /* ndef __KERNEL_OPENCL__ */
 
 /* Qualifiers for kernel code shared by CPU and GPU */
 
@@ -45,10 +45,10 @@
 #define __device_inline static inline //__attribute__((always_inline))
 #ifndef FREE_WINDOWS64
 #define __forceinline inline //__attribute__((always_inline))
-#endif
+#endif	/* ndef FREE_WINDOWS64 */
 #define __align(...) __attribute__((aligned(__VA_ARGS__)))
 #define __may_alias __attribute__((__may_alias__))
-#endif
+#endif  /* defined(_WIN32) && !defined(FREE_WINDOWS) */
 
 #endif
 
@@ -62,19 +62,41 @@
 
 #ifndef __KERNEL_GPU__
 
-/* not enabled, globally applying it just gives slowdown,
- * but useful for testing. */
 #ifndef __KERNEL_SSE_DISABLED__
+
 #ifndef __KERNEL_SSE__
 #define __KERNEL_SSE__
 #endif
+
+/* SSE2 is always available on x86_64 CPUs, so auto enable */
+#if defined(__x86_64__) && !defined(__KERNEL_SSE2__)
+#define __KERNEL_SSE2__
 #endif
 
-#ifdef __KERNEL_SSE__
+/* newer versions of SSE imply older versions */
+#ifdef __KERNEL_SSE4__
+#define __KERNEL_SSE3__
+#endif
 
-#include <xmmintrin.h> /* SSE 1 */
+#ifdef __KERNEL_SSSE3__
+#define __KERNEL_SSE3__
+#endif
+
+#ifdef __KERNEL_SSE3__
+#define __KERNEL_SSE2__
+#endif
 
 #ifdef __KERNEL_SSE2__
+#define __KERNEL_SSE__
+#endif
+
+#endif	/* ndef __KERNEL_SSE_DISABLED__ */
+
+/* SSE intrinsics headers */
+#ifndef FREE_WINDOWS64
+
+#ifdef __KERNEL_SSE2__
+#include <xmmintrin.h> /* SSE 1 */
 #include <emmintrin.h> /* SSE 2 */
 #endif
 
@@ -90,55 +112,17 @@
 #include <smmintrin.h> /* SSE 4 */
 #endif
 
-//#ifndef __KERNEL_SSE2__
-//#define __KERNEL_SSE2__
-//#endif
-
-//#ifndef __KERNEL_SSE3__
-//#define __KERNEL_SSE3__
-//#endif
-
-//#ifndef __KERNEL_SSSE3__
-//#define __KERNEL_SSSE3__
-//#endif
-
-//#ifndef __KERNEL_SSE4__
-//#define __KERNEL_SSE4__
-//#endif
-
-#else
-
-#if defined(__x86_64__) || defined(__KERNEL_SSSE3__)
+#else	/* ndef FREE_WINDOWS64 */
 
 /* MinGW64 has conflicting declarations for these SSE headers in <windows.h>.
  * Since we can't avoid including <windows.h>, better only include that */
-#ifdef FREE_WINDOWS64
 #include <windows.h>
-#else
-#include <xmmintrin.h> /* SSE 1 */
-#include <emmintrin.h> /* SSE 2 */
 
-#ifdef __KERNEL_SSE3__
-#include <pmmintrin.h> /* SSE 3 */
-#endif
-#ifdef __KERNEL_SSSE3__
-#include <tmmintrin.h> /* SSSE 3 */
-#endif
-#endif
-
-#ifndef __KERNEL_SSE2__
-#define __KERNEL_SSE2__
-#endif
-
-#endif
-
-#endif
+#endif	/* ndef FREE_WINDOWS64 */
 
 /* int8_t, uint16_t, and friends */
 #ifndef _WIN32
 #include <stdint.h>
-#endif
-
 #endif
 
 CCL_NAMESPACE_BEGIN
@@ -987,6 +971,9 @@ __device_inline float4 mask_select(int4 mask, float4 true_val, float4 false_val)
 
 __device_inline float fast_rcp(float a)
 {
+#ifndef __KERNEL_SSE__
+	return 1.0f / a;
+#else
 	__m128 ta = _mm_set_ss(a);
 	__m128 r = _mm_rcp_ss(ta);
 
@@ -994,6 +981,7 @@ __device_inline float fast_rcp(float a)
 	//r = _mm_sub_ss(_mm_add_ss(r, r), _mm_mul_ss(_mm_mul_ss(r, r), ta));
 
 	return _mm_cvtss_f32(r);
+#endif
 }
 
 /* return vector of reciprocal of all members of a */
@@ -1013,11 +1001,9 @@ __device_inline float3 fast_rcp(float3 a)
 
 #endif
 
-#ifdef __KERNEL_SSSE3__
-
 /* SSE shuffle utility functions */
 
-#ifdef __KERNEL_SSSE3__
+#if defined __KERNEL_SSSE3__
 
 /* faster version for SSSE3 */
 typedef __m128i shuffle_swap_t;
@@ -1037,7 +1023,7 @@ __device_inline const __m128 shuffle_swap(const __m128& a, const shuffle_swap_t&
 	return _mm_castsi128_ps(_mm_shuffle_epi8(_mm_castps_si128(a), shuf));
 }
 
-#else
+#elif defined __KERNEL_SSE2__
 
 /* somewhat slower version for SSE2 */
 typedef int shuffle_swap_t;
@@ -1057,11 +1043,8 @@ __device_inline const __m128 shuffle_swap(const __m128& a, shuffle_swap_t shuf)
 	/* shuffle value must be a constant, so we need to branch */
 	if(shuf)
 		return _mm_shuffle_ps(a, a, _MM_SHUFFLE(1, 0, 3, 2));
-	else
-		return _mm_shuffle_ps(a, a, _MM_SHUFFLE(3, 2, 1, 0));
+	return a;
 }
-
-#endif
 
 template<size_t i0, size_t i1, size_t i2, size_t i3>
 __device_inline const __m128 shuffle(const __m128& a, const __m128& b)
@@ -1074,6 +1057,10 @@ __device_inline const __m128 shuffle(const __m128& b)
 {
 	return _mm_shuffle_ps(b, b, _MM_SHUFFLE(i3, i2, i1, i0));
 }
+
+#else
+
+#endif
 #endif
 
 #ifndef __KERNEL_OPENCL__
@@ -1489,25 +1476,9 @@ __forceinline float4 insert(const float4 a, float b)
 
 #ifndef __KERNEL_GPU__
 
-static inline void *malloc_aligned(size_t size, size_t alignment)
-{
-	void *data = (void*)malloc(size + sizeof(void*) + alignment - 1);
+void *malloc_aligned(size_t size, size_t alignment);
 
-	union { void *ptr; size_t offset; } u;
-	u.ptr = (char*)data + sizeof(void*);
-	u.offset = (u.offset + alignment - 1) & ~(alignment - 1);
-	*(((void**)u.ptr) - 1) = data;
-
-	return u.ptr;
-}
-
-static inline void free_aligned(void *ptr)
-{
-	if(ptr) {
-		void *data = *(((void**)ptr) - 1);
-		free(data);
-	}
-}
+void free_aligned(void *ptr);
 
 #endif
 

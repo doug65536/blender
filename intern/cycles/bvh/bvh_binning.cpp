@@ -21,11 +21,11 @@
 
 #include <stdlib.h>
 
-#include "bvh_binning.h"
-
 #include "util_algorithm.h"
 #include "util_boundbox.h"
 #include "util_types.h"
+
+#include "bvh_binning.h"
 
 CCL_NAMESPACE_BEGIN
 

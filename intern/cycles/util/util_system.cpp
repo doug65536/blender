@@ -33,6 +33,27 @@
 
 CCL_NAMESPACE_BEGIN
 
+/* thrown here temporarily */
+void *malloc_aligned(size_t size, size_t alignment)
+{
+	   void *data = (void*)malloc(size + sizeof(void*) + alignment - 1);
+
+	   union { void *ptr; size_t offset; } u;
+	   u.ptr = (char*)data + sizeof(void*);
+	   u.offset = (u.offset + alignment - 1) & ~(alignment - 1);
+	   *(((void**)u.ptr) - 1) = data;
+
+	   return u.ptr;
+}
+
+void free_aligned(void *ptr)
+{
+	   if(ptr) {
+			   void *data = *(((void**)ptr) - 1);
+			   free(data);
+	   }
+}
+
 int system_cpu_thread_count()
 {
 	static uint count = 0;

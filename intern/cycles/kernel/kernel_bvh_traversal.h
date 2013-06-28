@@ -92,8 +92,8 @@ __device bool BVH_FUNCTION_NAME
 	const shuffle_swap_t shuf_identity = shuffle_swap_identity();
 	const shuffle_swap_t shuf_swap = shuffle_swap_swap();
 	
-	const __m128i pn = _mm_set_epi32(0x80000000, 0x80000000, 0x00000000, 0x00000000);
-	__m128 Psplat[3], idirsplat[3];
+	const int4 pn = make_int4(0, 0, 0x80000000, 0x80000000);
+	float4 Psplat[3], idirsplat[3];
 
 	Psplat[0] = _mm_set_ps1(P.x);
 	Psplat[1] = _mm_set_ps1(P.y);
