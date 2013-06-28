@@ -22,6 +22,15 @@
 
 #include "util_types.h"
 
+#define ENABLE_TRACE_BIN
+#ifdef ENABLE_TRACE_BIN
+#define TRACE_BIN_ONLY(e) e
+#define TRACE_BIN(...) ((void)printf(__VA_ARGS__), (void)fflush(stdout))
+#else
+#define TRACE_BIN_ONLY(e) ((void)0)
+#define TRACE_BIN(...) ((void)0)
+#endif
+
 CCL_NAMESPACE_BEGIN
 
 /* Single threaded object binner. Finds the split with the best SAH heuristic
@@ -55,11 +64,18 @@ protected:
 	__forceinline int4 get_bin(const BoundBox& box) const
 	{
 		float4 fa = make_float4((box.center2() - cent_bounds().min)*scale - make_float3(0.5f), 0.0f);
+		TRACE_BIN("fa = %.1e %.1e %.1e %.1e\n", fa.x, fa.y, fa.z, fa.w);
+
 		int4 a = convert_int4(fa);
+		TRACE_BIN("a = %d %d %d %d\n", a.x, a.y, a.z, a.w);
+
 		int4 mn = make_int4(0);
 		int4 mx = make_int4((int)num_bins-1);
 
-		return clamp(a, mn, mx);
+		int4 r = clamp(a, mn, mx);
+		TRACE_BIN("r = %d %d %d %d\n", r.x, r.y, r.z, r.w);
+
+		return r;
 	}
 
 	/* computes the bin numbers for each dimension for a point. */

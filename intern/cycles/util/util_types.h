@@ -342,8 +342,8 @@ struct SSE_ALIGN int4 {
 #endif
 
 #if defined __GNUC___ && defined __KERNEL_SSE__
-	__forceinline int operator[](int i) const { return x[i]; }
-	__forceinline int& operator[](int i) { return x[i]; }
+	__forceinline int operator[](int i) const { return m128[i]; }
+	__forceinline int& operator[](int i) { return m128[i]; }
 #else
 	__forceinline int operator[](int i) const { return *(&x + i); }
 	__forceinline int& operator[](int i) { return *(&x + i); }
@@ -1076,6 +1076,8 @@ __device_inline const __m128 shuffle(const __m128& b)
 }
 #endif
 
+#ifndef __KERNEL_OPENCL__
+
 /* uchar extract */
 
 template<int src>
@@ -1483,6 +1485,7 @@ __forceinline float4 insert(const float4 a, float b)
 	return t;
 #endif
 }
+#endif
 
 #ifndef __KERNEL_GPU__
 

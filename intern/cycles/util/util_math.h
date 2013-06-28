@@ -3008,6 +3008,7 @@ __device_inline float average(const float3 a)
 	return reduce_add(a)*(1.0f/3.0f);
 }
 
+#ifndef __KERNEL_OPENCL__
 /* shuffle */
 /* FIXME: SSE optimize */
 
@@ -3117,9 +3118,11 @@ __forceinline float4 shuffle<0, 1, 0, 1>(const float4 b)
 {
 	return _mm_castpd_ps(_mm_movedup_pd(_mm_castps_pd(b)));
 }
-#endif
+#endif // __KERNEL_SSE3__
 
-#endif
+#endif // __KERNEL_SSE__
+
+#endif // __KERNEL_OPENCL__
 
 #ifndef __KERNEL_OPENCL__
 

@@ -15,7 +15,9 @@
  * limitations under the License.
  */
 
-//#define __KERNEL_SSE__
+#ifdef WITH_OPTIMIZED_KERNEL
+#define __KERNEL_SSE__
+#endif
 
 #include <stdlib.h>
 
@@ -26,15 +28,6 @@
 #include "util_types.h"
 
 CCL_NAMESPACE_BEGIN
-
-#define ENABLE_TRACE_BIN
-#ifdef ENABLE_TRACE_BIN
-#define TRACE_BIN_ONLY(e) e
-#define TRACE_BIN(...) ((void)printf(__VA_ARGS__), (void)fflush(stdout))
-#else
-#define TRACE_BIN_ONLY(e) ((void)0)
-#define TRACE_BIN(...) ((void)0)
-#endif
 
 /* SSE replacements */
 
@@ -88,6 +81,10 @@ BVHObjectBinning::BVHObjectBinning(const BVHRange& job, BVHReference *prims)
 	{
 		ssize_t i;
 
+		const int4 inc_x = make_int4(1, 0, 0, 0);
+		const int4 inc_y = S_yxyy(inc_x);
+		const int4 inc_z = S_yyxy(inc_x);
+
 		for(i = 0; i < ssize_t(size()) - 1; i += 2) {
 			prefetch_L2(&prims[start() + i + 8]);
 
@@ -101,33 +98,33 @@ BVHObjectBinning::BVHObjectBinning(const BVHRange& job, BVHReference *prims)
 			/* increase bounds for bins for even primitive */
 			int b00 = extract<0>(bin0);
 			assert(b00 >= 0 && b00 < MAX_BINS);
-			bin_count[b00][0]++;
+			bin_count[b00] += inc_x;
 			bin_bounds[b00][0].grow(prim0.bounds());
 
 			int b01 = extract<1>(bin0);
 			assert(b01 >= 0 && b01 < MAX_BINS);
-			bin_count[b01][1]++;
+			bin_count[b01] += inc_y;
 			bin_bounds[b01][1].grow(prim0.bounds());
 
 			int b02 = extract<2>(bin0);
 			assert(b02 >= 0 && b02 < MAX_BINS);
-			bin_count[b02][2]++;
+			bin_count[b02] += inc_z;
 			bin_bounds[b02][2].grow(prim0.bounds());
 
 			/* increase bounds of bins for odd primitive */
 			int b10 = extract<0>(bin1);
 			assert(b10 >= 0 && b10 < MAX_BINS);
-			bin_count[b10][0]++;
+			bin_count[b10] += inc_x;
 			bin_bounds[b10][0].grow(prim1.bounds());
 
 			int b11 = extract<1>(bin1);
 			assert(b11 >= 0 && b11 < MAX_BINS);
-			bin_count[b11][1]++;
+			bin_count[b11] += inc_y;
 			bin_bounds[b11][1].grow(prim1.bounds());
 
 			int b12 = extract<2>(bin1);
 			assert(b12 >= 0 && b12 < MAX_BINS);
-			bin_count[b12][2]++;
+			bin_count[b12] += inc_z;
 			bin_bounds[b12][2].grow(prim1.bounds());
 
 			TRACE_BIN("b00:%d b01:%d b02:%d b10:%d b11:%d b12:%d\n", b00, b01, b02, b10, b11, b12);
@@ -142,17 +139,17 @@ BVHObjectBinning::BVHObjectBinning(const BVHRange& job, BVHReference *prims)
 			/* increase bounds of bins */
 			int b00 = extract<0>(bin0);
 			assert(b00 >= 0 && b00 < MAX_BINS);
-			bin_count[b00][0]++;
+			bin_count[b00] += inc_x;
 			bin_bounds[b00][0].grow(prim0.bounds());
 
 			int b01 = extract<1>(bin0);
 			assert(b01 >= 0 && b01 < MAX_BINS);
-			bin_count[b01][1]++;
+			bin_count[b01] += inc_y;
 			bin_bounds[b01][1].grow(prim0.bounds());
 
 			int b02 = extract<2>(bin0);
 			assert(b02 >= 0 && b02 < MAX_BINS);
-			bin_count[b02][2]++;
+			bin_count[b02] += inc_z;
 			bin_bounds[b02][2].grow(prim0.bounds());
 
 			TRACE_BIN("b00:%d b01:%d b02:%d\n", b00, b01, b02);

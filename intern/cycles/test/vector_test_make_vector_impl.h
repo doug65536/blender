@@ -164,6 +164,16 @@ TEST_FUNCTION(mul)
 
 	VECTOR_TYPE_NAME n = n0 * n1;
 	VERIFY_XYZW(n, 2*6, 3*7, 4*8, 5*9);
+
+#ifndef VECTOR_IS_UNSIGNED
+	/* of course, multiplication is commutative, but I check anyway :) */
+
+	n = n0 * -n1;
+	VERIFY_XYZW(n, 2*-6, 3*-7, 4*-8, 5*-9);
+
+	n = -n0 * n1;
+	VERIFY_XYZW(n, -2*6, -3*7, -4*8, -5*9);
+#endif
 }
 
 TEST_FUNCTION(div)

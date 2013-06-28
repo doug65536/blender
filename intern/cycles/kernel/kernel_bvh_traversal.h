@@ -218,7 +218,7 @@ __device bool BVH_FUNCTION_NAME
 					}
 
 					++stackPtr;
-					assert(stackPtr < BVH_STACK_SIZE);
+					kernel_assert(stackPtr < BVH_STACK_SIZE);
 					traversalStack[stackPtr] = nodeAddrChild1;
 				}
 				else {
@@ -228,7 +228,7 @@ __device bool BVH_FUNCTION_NAME
 					}
 					else if(!traverseChild0) {
 						/* neither child was intersected */
-						assert(stackPtr >= 0);
+						kernel_assert(stackPtr >= 0);
 						nodeAddr = traversalStack[stackPtr];
 						--stackPtr;
 					}
