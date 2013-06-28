@@ -1,0 +1,11 @@
+--- intern/cycles/bvh/bvh_binning.cpp
++++ intern/cycles/bvh/bvh_binning.cpp
+@@ -29,7 +29,7 @@
+ 
+ #define ENABLE_TRACE_BIN
+ #ifdef ENABLE_TRACE_BIN
+-#define TRACE_BIN(...) printf("TRACE_BIN: " __VA_ARGS__)
++#define TRACE_BIN(...) printf(__VA_ARGS__)
+ #else
+ #define TRACE_BIN(...) ((void)0)
+ #endif
