@@ -80,12 +80,16 @@ __device_inline float3 transform_point(const Transform *t, const float3 a)
 
 __device_inline float3 transform_direction(const Transform *t, const float3 a)
 {
-	float3 c = make_float3(
-		a.x*t->x.x + a.y*t->x.y + a.z*t->x.z,
-		a.x*t->y.x + a.y*t->y.y + a.z*t->y.z,
-		a.x*t->z.x + a.y*t->z.y + a.z*t->z.z);
-
-	return c;
+	return make_float3(
+				dot(a, float4_to_float3(t->x)),
+				dot(a, float4_to_float3(t->y)),
+				dot(a, float4_to_float3(t->z))
+				);
+	//float3 c = make_float3(
+	//	a.x*t->x.x + a.y*t->x.y + a.z*t->x.z,
+	//	a.x*t->y.x + a.y*t->y.y + a.z*t->y.z,
+	//	a.x*t->z.x + a.y*t->z.y + a.z*t->z.z);
+	//return c;
 }
 
 __device_inline float3 transform_direction_transposed(const Transform *t, const float3 a)

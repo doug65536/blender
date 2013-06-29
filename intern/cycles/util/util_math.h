@@ -192,6 +192,24 @@ __device_inline int float_to_int(float f)
 #endif
 }
 
+__device_inline int3 float_to_int(float3 f)
+{
+#if defined(__KERNEL_SSE2__)
+	return _mm_cvttps_epi32(f);
+#else
+	return make_int3((int)f.x, (int)f.y, (int)f.z);
+#endif
+}
+
+__device_inline int4 float_to_int(float4 f)
+{
+#if defined(__KERNEL_SSE2__)
+	return _mm_cvttps_epi32(f);
+#else
+	return make_int4((int)f.x, (int)f.y, (int)f.z, (int)f.w);
+#endif
+}
+
 __device_inline int floor_to_int(float f)
 {
 	return float_to_int(floorf(f));

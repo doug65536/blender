@@ -32,6 +32,15 @@
 
 CCL_NAMESPACE_BEGIN
 
+__device int3 quick_floor(float3 x)
+{
+	int3 t = float_to_int(x);
+	/* sign extend to -1 or zero */
+	int3 adj = t >> 31;
+	t += adj;
+	return t;
+}
+
 __device int quick_floor(float x)
 {
 	int i = float_to_int(x);
@@ -78,7 +87,12 @@ __device uint hash(uint kx, uint ky, uint kz)
 __device int imod(int a, int b)
 {
 	a %= b;
-	return a < 0 ? a + b : a;
+	/* sign extend to 0xFFFFFFFF if negative, or 0x00000000 if positive */
+	int mask = a >> 31;
+	/* add b or zero */
+	a += b & mask;
+	return a;
+	//return a < 0 ? a + b : a;
 }
 
 __device uint phash(int kx, int ky, int kz, int3 p) 
@@ -164,24 +178,28 @@ __device_noinline float perlin_periodic(float x, float y, float z, float3 pperio
 
 	int3 p;
 
-	p.x = max(quick_floor(pperiod.x), 1);
-	p.y = max(quick_floor(pperiod.y), 1);
-	p.z = max(quick_floor(pperiod.z), 1);
+	p = max(quick_floor(pperiod), make_int3(1));
 
-	float u = fade(fx);
-	float v = fade(fy);
-	float w = fade(fz);
+	//p.x = max(quick_floor(pperiod.x), 1);
+	//p.y = max(quick_floor(pperiod.y), 1);
+	//p.z = max(quick_floor(pperiod.z), 1);
+
+	float3 uvw = fade3(make_float3(fx, fy, fz));
+
+	float u = uvw.x;//fade(fx);
+	float v = uvw.y;//fade(fy);
+	float w = uvw.z;//fade(fz);
 
 	float result;
 
-	result = nerp (w, nerp (v, nerp (u, grad (phash (X  , Y  , Z  , p), fx	 , fy	 , fz	  ),
-										grad (phash (X+1, Y  , Z  , p), fx-1.0f, fy	 , fz	  )),
-							   nerp (u, grad (phash (X  , Y+1, Z  , p), fx	 , fy-1.0f, fz	  ),
-										grad (phash (X+1, Y+1, Z  , p), fx-1.0f, fy-1.0f, fz	  ))),
-					  nerp (v, nerp (u, grad (phash (X  , Y  , Z+1, p), fx	 , fy	 , fz-1.0f ),
-										grad (phash (X+1, Y  , Z+1, p), fx-1.0f, fy	 , fz-1.0f )),
-							   nerp (u, grad (phash (X  , Y+1, Z+1, p), fx	 , fy-1.0f, fz-1.0f ),
-										grad (phash (X+1, Y+1, Z+1, p), fx-1.0f, fy-1.0f, fz-1.0f ))));
+	result = nerp (w, nerp (v, nerp (u, grad (phash (X  , Y  , Z  , p), fx     , fy       , fz     ),
+										grad (phash (X+1, Y  , Z  , p), fx-1.0f, fy       , fz     )),
+							   nerp (u, grad (phash (X  , Y+1, Z  , p), fx    , fy-1.0f   , fz     ),
+										grad (phash (X+1, Y+1, Z  , p), fx-1.0f, fy-1.0f  , fz     ))),
+					  nerp (v, nerp (u, grad (phash (X  , Y  , Z+1, p), fx     , fy       , fz-1.0f),
+										grad (phash (X+1, Y  , Z+1, p), fx-1.0f, fy       , fz-1.0f)),
+							   nerp (u, grad (phash (X  , Y+1, Z+1, p), fx     , fy-1.0f  , fz-1.0f),
+										grad (phash (X+1, Y+1, Z+1, p), fx-1.0f, fy-1.0f  , fz-1.0f))));
 	float r = scale3(result);
 
 	/* can happen for big coordinates, things even out to 0.0 then anyway */
