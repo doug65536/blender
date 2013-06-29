@@ -206,14 +206,14 @@ endif()
 include_directories(${INC})
 include_directories(SYSTEM ${INC_SYS})
 
-add_library(cycles_kernel ${SRC} ${SRC_HEADERS} ${SRC_CLOSURE_HEADERS} ${SRC_SVM_HEADERS})
-
 if(WITH_CYCLES_OPTIMIZED_KERNEL)
-	set_source_files_properties(kernel_sse2.cpp PROPERTIES COMPILE_FLAGS "${CYCLES_SSE2_KERNEL_FLAGS}")
-	set_source_files_properties(kernel_sse3.cpp PROPERTIES COMPILE_FLAGS "${CYCLES_SSE3_KERNEL_FLAGS}")
-	set_source_files_properties(kernel_sse4.cpp PROPERTIES COMPILE_FLAGS "${CYCLES_SSE4_KERNEL_FLAGS}")
-	set_source_files_properties(kernel_sseavx1.cpp PROPERTIES COMPILE_FLAGS "${CYCLES_AVX1_KERNEL_FLAGS}")
+	set_source_files_properties(kernel_sse2.cpp PROPERTIES COMPILE_FLAGS "${CMAKE_CXX_FLAGS} ${CYCLES_SSE2_KERNEL_FLAGS}")
+	set_source_files_properties(kernel_sse3.cpp PROPERTIES COMPILE_FLAGS "${CMAKE_CXX_FLAGS} ${CYCLES_SSE3_KERNEL_FLAGS}")
+	set_source_files_properties(kernel_sse4.cpp PROPERTIES COMPILE_FLAGS "${CMAKE_CXX_FLAGS} ${CYCLES_SSE4_KERNEL_FLAGS}")
+	set_source_files_properties(kernel_sseavx1.cpp PROPERTIES COMPILE_FLAGS "${CMAKE_CXX_FLAGS} ${CYCLES_AVX1_KERNEL_FLAGS}")
 endif()
+
+add_library(cycles_kernel ${SRC} ${SRC_HEADERS} ${SRC_CLOSURE_HEADERS} ${SRC_SVM_HEADERS})
 
 if(WITH_CYCLES_CUDA)
 	add_dependencies(cycles_kernel cycles_kernel_cuda)

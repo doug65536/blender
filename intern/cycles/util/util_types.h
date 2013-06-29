@@ -42,9 +42,9 @@
 #define __align(...) __declspec(align(__VA_ARGS__))
 #define __may_alias
 #else
-#define __device_inline static inline //__attribute__((always_inline))
+#define __device_inline static inline __attribute__((always_inline))
 #ifndef FREE_WINDOWS64
-#define __forceinline inline //__attribute__((always_inline))
+#define __forceinline inline __attribute__((always_inline))
 #endif	/* ndef FREE_WINDOWS64 */
 #define __align(...) __attribute__((aligned(__VA_ARGS__)))
 #define __may_alias __attribute__((__may_alias__))
@@ -735,7 +735,7 @@ __device_inline float4 convert_float4(const uchar4 &a)
 
 	/* zero extend 8-bit values to 32-bit */
 	t0 = _mm_unpacklo_epi8(t0, zero);
-	t0 = _mm_unpackhi_epi16(t0, zero);
+	t0 = _mm_unpacklo_epi16(t0, zero);
 
 	/* convert to float */
 	return _mm_cvtepi32_ps(t0);
@@ -1056,6 +1056,18 @@ template<size_t i0, size_t i1, size_t i2, size_t i3>
 __device_inline const __m128 shuffle(const __m128& b)
 {
 	return _mm_shuffle_ps(b, b, _MM_SHUFFLE(i3, i2, i1, i0));
+}
+
+template<size_t i0, size_t i1, size_t i2, size_t i3>
+__device_inline const __m128i shuffle(const __m128i& b)
+{
+	return _mm_shuffle_epi32(b, _MM_SHUFFLE(i3, i2, i1, i0));
+}
+
+template<size_t i0, size_t i1, size_t i2>
+__device_inline const __m128i shuffle(const __m128i& b)
+{
+	return _mm_shuffle_epi32(b, _MM_SHUFFLE(3, i2, i1, i0));
 }
 
 #else

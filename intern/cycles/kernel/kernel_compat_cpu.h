@@ -76,7 +76,7 @@ template<typename T> struct texture_image  {
 
 	int wrap_periodic(int x, int width)
 	{
-		if (x >= width)
+		//if (x >= width || x <= 0)
 			x %= width;
 		if(x < 0)
 			x += width;
@@ -90,11 +90,14 @@ template<typename T> struct texture_image  {
 
 	float frac(float x, int *ix)
 	{
-		int i = float_to_int(x) - ((x < 0.0f)? 1: 0);
+		int i = float_to_int(x);// - ((x < 0.0f)? 1: 0);
+		/* sign extend i to either -1 or 0, makes it branchless */
+		i += i >> 31;
 		*ix = i;
 		return x - (float)i;
 	}
 
+	/* bilinear interpolation */
 	float4 interp(float x, float y, bool periodic = true)
 	{
 		if(!data)
@@ -119,12 +122,25 @@ template<typename T> struct texture_image  {
 			niy = wrap_clamp(iy+1, height);
 		}
 
-		float4 r = (1.0f - ty)*(1.0f - tx)*read(data[ix + iy*width]);
-		r += (1.0f - ty)*tx*read(data[nix + iy*width]);
-		r += ty*(1.0f - tx)*read(data[ix + niy*width]);
-		r += ty*tx*read(data[nix + niy*width]);
+		/* do all the uchar4 to float4 conversions in a batch to help cse */
+		/* top left, top right, bottom left, bottom right */
+		float4 tl = read(data[ix + iy*width]);
+		float4 tr = read(data[nix + iy*width]);
+		float4 bl = read(data[ix + niy*width]);
+		float4 br = read(data[nix + niy*width]);
 
+		float4 r;
+		r  = ((1.0f - ty) * (1.0f - tx)) * tl;
+		r += ((1.0f - ty) *         tx ) * tr;
+		r += (        ty  * (1.0f - tx)) * bl;
+		r += (        ty  *         tx ) * br;
 		return r;
+
+		//float4 r = (1.0f - ty)*(1.0f - tx)*read(data[ix + iy*width]);
+		//r += (1.0f - ty)*tx*read(data[nix + iy*width]);
+		//r += ty*(1.0f - tx)*read(data[ix + niy*width]);
+		//r += ty*tx*read(data[nix + niy*width]);
+		//return r;
 	}
 
 	T *data;

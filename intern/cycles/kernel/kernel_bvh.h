@@ -45,16 +45,17 @@ CCL_NAMESPACE_BEGIN
 __device_inline float3 bvh_inverse_direction(const float3 dir)
 {
 	/* avoid divide by zero (ooeps = exp2f(-80.0f)) */
-    const float ooeps = 8.2718061255302767e-25f;    /* constant too precise for double */
+	//const float ooeps = 8.2718061255302767e-25f;    /* constant too precise for double */
+	//float3 idir;
+	//idir.x = 1.0f/((fabsf(dir.x) > ooeps)? dir.x: copysign(ooeps, dir.x));
+	//idir.y = 1.0f/((fabsf(dir.y) > ooeps)? dir.y: copysign(ooeps, dir.y));
+	//idir.z = 1.0f/((fabsf(dir.z) > ooeps)? dir.z: copysign(ooeps, dir.z));
+	//return idir;
+
 	float3 idir;
-
-    //idir.x = 1.0f/((fabsf(dir.x) > ooeps)? dir.x: copysignf(ooeps, dir.x));
-    //idir.y = 1.0f/((fabsf(dir.y) > ooeps)? dir.y: copysignf(ooeps, dir.y));
-    //idir.z = 1.0f/((fabsf(dir.z) > ooeps)? dir.z: copysignf(ooeps, dir.z));
-
-    float3 absdir = fabs(dir);
-    float3 ooeps3 = make_float3(ooeps);
-    float3 ooeps3cs = copysignf(ooeps3, dir);
+	float3 absdir = fabs(dir);
+	float3 ooeps3 = make_float3(8.2718061255302767e-25f);// 2.0**-80.0
+	float3 ooeps3cs = copysignf(ooeps3, dir);
 
 	float3 result = mask_select(absdir > ooeps3, dir, ooeps3cs);
 	idir = rcp(result);
@@ -126,23 +127,25 @@ __device_inline bool bvh_triangle_intersect(KernelGlobals *kg, Intersection *ise
 	/* compute and check intersection t-value */
 	float4 v00 = kernel_tex_fetch(__tri_woop, triAddr*TRI_NODE_SIZE+0);
 	float4 v11 = kernel_tex_fetch(__tri_woop, triAddr*TRI_NODE_SIZE+1);
-	float3 dir = 1.0f/idir;
+	float3 dir = rcp(idir);
 
-	float Oz = v00.w - P.x*v00.x - P.y*v00.y - P.z*v00.z;
-	float invDz = rcp(dot(make_float4(dir), v00));// 1.0f/(dir.x*v00.x + dir.y*v00.y + dir.z*v00.z);
+	float Oz = dot(make_float4(invertsigns(P), 1.0f), v00);// v00.w - P.x*v00.x - P.y*v00.y - P.z*v00.z;
+	float invDz = rcp(dot(make_float4(dir, 0.0f), v00));// 1.0f/(dir.x*v00.x + dir.y*v00.y + dir.z*v00.z);
 	float t = Oz * invDz;
 
 	if(t > 0.0f && t < isect->t) {
+		const float4 P1w = make_float4(P, 1.0f);
+
 		/* compute and check barycentric u */
-		float Ox = v11.w + P.x*v11.x + P.y*v11.y + P.z*v11.z;
-		float Dx = dir.x*v11.x + dir.y*v11.y + dir.z*v11.z;
+		float Ox = dot(v11, P1w);// v11.w + P.x*v11.x + P.y*v11.y + P.z*v11.z;
+		float Dx = dot(dir, float4_to_float3(v11));// dir.x*v11.x + dir.y*v11.y + dir.z*v11.z;
 		float u = Ox + t*Dx;
 
 		if(u >= 0.0f) {
 			/* compute and check barycentric v */
 			float4 v22 = kernel_tex_fetch(__tri_woop, triAddr*TRI_NODE_SIZE+2);
-			float Oy = v22.w + P.x*v22.x + P.y*v22.y + P.z*v22.z;
-			float Dy = dir.x*v22.x + dir.y*v22.y + dir.z*v22.z;
+			float Oy = dot(v22, P1w); //v22.w + P.x*v22.x + P.y*v22.y + P.z*v22.z;
+			float Dy = dot(dir, float4_to_float3(v22));// dir.x*v22.x + dir.y*v22.y + dir.z*v22.z;
 			float v = Oy + t*Dy;
 
 			if(v >= 0.0f && u + v <= 1.0f) {

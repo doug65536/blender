@@ -34,7 +34,11 @@ CCL_NAMESPACE_BEGIN
 
 __device int quick_floor(float x)
 {
-	return float_to_int(x) - ((x < 0) ? 1 : 0);
+	int i = float_to_int(x);
+	/* sign extend to -1 or 0 */
+	i += i >> 31;
+	return i;
+	//return float_to_int(x) - ((x < 0) ? 1 : 0);
 }
 
 __device float bits_to_01(uint bits)
@@ -93,6 +97,18 @@ __device float fade(float t)
 	return t * t * t * (t * (t * 6.0f - 15.0f) + 10.0f);
 }
 
+__device float3 fade3(const float3 t)
+{
+	float3 t3 = t * t * t;
+	float3 t0 = t;
+	t0 *= make_float3(6.0f);
+	t0 -= make_float3(15.0f);
+	t0 *= t;
+	t0 += make_float3(10.0f);
+	t0 *= t3;
+	return t0;
+}
+
 __device float nerp(float t, float a, float b)
 {
 	return (1.0f - t) * a + t * b;
@@ -118,19 +134,21 @@ __device_noinline float perlin(float x, float y, float z)
 	int Y; float fy = floorfrac(y, &Y);
 	int Z; float fz = floorfrac(z, &Z);
 
-	float u = fade(fx);
-	float v = fade(fy);
-	float w = fade(fz);
+	float3 uvw = fade3(make_float3(fx, fy, fz));
+
+	float u = uvw.x;//fade(fx);
+	float v = uvw.y;//fade(fy);
+	float w = uvw.z;//fade(fz);
 
 	float result;
 
-	result = nerp (w, nerp (v, nerp (u, grad (hash (X  , Y  , Z  ), fx	 , fy	 , fz	  ),
-										grad (hash (X+1, Y  , Z  ), fx-1.0f, fy	 , fz	  )),
-							   nerp (u, grad (hash (X  , Y+1, Z  ), fx	 , fy-1.0f, fz	  ),
+	result = nerp (w, nerp (v, nerp (u, grad (hash (X  , Y  , Z  ), fx	   , fy	    , fz	  ),
+										grad (hash (X+1, Y  , Z  ), fx-1.0f, fy	    , fz	  )),
+							   nerp (u, grad (hash (X  , Y+1, Z  ), fx	   , fy-1.0f, fz	  ),
 										grad (hash (X+1, Y+1, Z  ), fx-1.0f, fy-1.0f, fz	  ))),
-					  nerp (v, nerp (u, grad (hash (X  , Y  , Z+1), fx	 , fy	 , fz-1.0f ),
-										grad (hash (X+1, Y  , Z+1), fx-1.0f, fy	 , fz-1.0f )),
-							   nerp (u, grad (hash (X  , Y+1, Z+1), fx	 , fy-1.0f, fz-1.0f ),
+					  nerp (v, nerp (u, grad (hash (X  , Y  , Z+1), fx	   , fy	    , fz-1.0f ),
+										grad (hash (X+1, Y  , Z+1), fx-1.0f, fy	    , fz-1.0f )),
+							   nerp (u, grad (hash (X  , Y+1, Z+1), fx	   , fy-1.0f, fz-1.0f ),
 										grad (hash (X+1, Y+1, Z+1), fx-1.0f, fy-1.0f, fz-1.0f ))));
 	float r = scale3(result);
 

@@ -185,8 +185,6 @@ __device_inline float clamp(float a, float mn, float mx)
 
 __device_inline int float_to_int(float f)
 {
-	/* fixed bug causing poor performance in msvc
-	 * was using _mm_load_ss(&f), which always goes through memory */
 #if defined(__KERNEL_SSE2__)
 	return _mm_cvtt_ss2si(_mm_set_ss(f));
 #else
@@ -1982,32 +1980,32 @@ __device_inline int2 operator<<(int2& a, uchar f)
 	return make_int2(a.x << f, a.y << f);
 }
 
-__device_inline int2 operator>>=(int2& a, uchar f)
+__device_inline int2& operator>>=(int2& a, uchar f)
 {
 	return a = a >> f;
 }
 
-__device_inline int2 operator<<=(int2& a, uchar f)
+__device_inline int2& operator<<=(int2& a, uchar f)
 {
 	return a = a << f;
 }
 
-__device_inline int2 operator+=(int2& a, const int2 b)
+__device_inline int2& operator+=(int2& a, const int2 b)
 {
 	return a = a + b;
 }
 
-__device_inline int2 operator+=(int2& a, const int b)
+__device_inline int2& operator+=(int2& a, const int b)
 {
 	return a = a + make_int2(b);
 }
 
-__device_inline int2 operator-=(int2& a, const int2 b)
+__device_inline int2& operator-=(int2& a, const int2 b)
 {
 	return a = a - b;
 }
 
-__device_inline int2 operator-=(int2& a, const int b)
+__device_inline int2& operator-=(int2& a, const int b)
 {
 	return a = a - make_int2(b);
 }
@@ -2141,49 +2139,50 @@ __device_inline int3 operator<<=(int3& a, uchar f)
 	return a = a << f;
 }
 
-__device_inline int3 operator+=(int3& a, const int3 b)
+__device_inline int3& operator+=(int3& a, const int3 b)
 {
 	return a = a + b;
 }
 
-__device_inline int3 operator+=(int3& a, const int b)
+__device_inline int3& operator+=(int3& a, const int b)
 {
 	return a = a + make_int3(b);
 }
 
-__device_inline int3 operator-=(int3& a, const int3 b)
+__device_inline int3& operator-=(int3& a, const int3 b)
 {
 	return a = a - b;
 }
 
-__device_inline int3 operator-=(int3& a, const int b)
+__device_inline int3& operator-=(int3& a, const int b)
 {
 	return a = a - make_int3(b);
 }
 
-__device_inline int3 operator*=(int3& a, const int3 b)
+__device_inline int3& operator*=(int3& a, const int3 b)
 {
 	return a = a * b;
 }
 
-__device_inline int3 operator*=(int3& a, int f)
+__device_inline int3& operator*=(int3& a, int f)
 {
 	return a = a * f;
 }
 
-__device_inline int3 operator/=(int3& a, const int3 b)
+__device_inline int3& operator/=(int3& a, const int3 b)
 {
 	return a = a / b;
 }
 
-__device_inline int3 operator/=(int3& a, int f)
+__device_inline int3& operator/=(int3& a, int f)
 {
 	return a = a / f;
 }
 
 __device_inline int dot(const int3 a, const int3 b)
 {
-	return a.x*b.x + a.y*b.y + a.z*b.z;
+	int3 t = a * b;
+	return t.x + t.y + t.z;
 }
 
 __device_inline int3 cross(const int3 a, const int3 b)
@@ -2489,107 +2488,6 @@ __device_inline float dot(const float2 a, const float2 b)
 __device_inline float cross(const float2 a, const float2 b)
 {
 	return (a.x*b.y - a.y*b.x);
-}
-
-#endif
-
-#ifndef __KERNEL_OPENCL__
-
-__device_inline float len(const float2 a)
-{
-#ifdef __KERNEL_SSE__
-	return _mm_cvtss_f32(_mm_sqrt_ss(_mm_set_ss(dot(a,a))));
-#else
-	return sqrtf(dot(a, a));
-#endif
-}
-
-__device_inline float len_rcp(const float2 a)
-{
-#ifdef __KERNEL_SSE__
-	return _mm_cvtss_f32(_mm_rsqrt_ss(_mm_set_ss(dot(a,a))));
-#else
-	return 1.0f/sqrtf(dot(a, a));
-#endif
-}
-
-__device_inline float2 normalize(const float2 a)
-{
-	return a*len_rcp(a);
-}
-
-__device_inline float2 normalize_len(const float2 a, float *t)
-{
-	*t = len(a);
-	return a/(*t);
-}
-
-__device_inline float2 fabs(float2 a)
-{
-	return make_float2(fabsf(a.x), fabsf(a.y));
-}
-
-__device_inline float2 as_float2(const float4 a)
-{
-#ifdef __KERNEL_SSE__
-	float t0 = _mm_cvtss_f32(a);
-	float t1 = _mm_cvtss_f32(_mm_shuffle_ps(a, a, _MM_SHUFFLE(0, 0, 0, 1)));
-	return make_float2(t0, t1);
-#else
-	return make_float2(a.x, a.y);
-#endif
-}
-
-/* return a with signs copied from b */
-__device_inline float3 copysignf(const float3 a, const float3 b)
-{
-#ifdef __KERNEL_SSE__
-    __m128 signmask = _mm_castsi128_ps(_mm_set1_epi32(0x80000000));
-	__m128 abs_a = _mm_andnot_ps(signmask, a);
-	__m128 signs = _mm_and_ps(signmask, b);
-	return _mm_or_ps(abs_a, signs);
-#else
-	return float3(
-		copysign(a.x, b.x),
-		copysign(a.y, b.y),
-		copysign(a.z, b.z));
-#endif
-}
-
-/* return a with signs copied from b */
-__device_inline float4 copysignf(const float4 a, const float4 b)
-{
-#ifdef __KERNEL_SSE__
-    __m128 signmask = _mm_castsi128_ps(_mm_set1_epi32(0x80000000));
-	__m128 abs_a = _mm_andnot_ps(signmask, a);
-	__m128 signs = _mm_and_ps(signmask, b);
-	return _mm_or_ps(abs_a, signs);
-#else
-    float4 r;
-    r.x = copysign(a.x, b.x);
-    r.y = copysign(a.y, b.y);
-    r.z = copysign(a.z, b.z);
-    r.w = copysign(a.w, b.w);
-    return r;
-#endif
-}
-
-#endif
-
-#ifndef __KERNEL_GPU__
-
-__device_inline void print_float2(const char *label, const float2 a)
-{
-	printf("%s: %.8f %.8f\n", label, (double)a.x, (double)a.y);
-}
-
-#endif
-
-#ifndef __KERNEL_OPENCL__
-
-__device_inline float2 interp(float2 a, float2 b, float t)
-{
-	return a + t*(b - a);
 }
 
 #endif
@@ -3007,6 +2905,24 @@ __device_inline float average(const float3 a)
 {
 	return reduce_add(a)*(1.0f/3.0f);
 }
+
+#ifndef __KERNEL_GPU__
+
+__device_inline void print_float2(const char *label, const float2 a)
+{
+	printf("%s: %.8f %.8f\n", label, (double)a.x, (double)a.y);
+}
+
+#endif
+
+#ifndef __KERNEL_OPENCL__
+
+__device_inline float2 interp(float2 a, float2 b, float t)
+{
+	return a + t*(b - a);
+}
+
+#endif
 
 #ifndef __KERNEL_OPENCL__
 /* shuffle */
@@ -3639,6 +3555,113 @@ __device float safe_modulo(float a, float b)
 {
 	return (b != 0.0f)? fmodf(a, b): 0.0f;
 }
+
+#ifndef __KERNEL_OPENCL__
+
+/* vector length */
+
+__device_inline float len(const float2 a)
+{
+#ifdef __KERNEL_SSE__
+	return _mm_cvtss_f32(_mm_sqrt_ss(_mm_set_ss(dot(a,a))));
+#else
+	return sqrtf(dot(a, a));
+#endif
+}
+
+__device_inline float len_rcp(const float2 a)
+{
+#ifdef __KERNEL_SSE__
+	return _mm_cvtss_f32(_mm_rsqrt_ss(_mm_set_ss(dot(a,a))));
+#else
+	return 1.0f/sqrtf(dot(a, a));
+#endif
+}
+
+__device_inline float2 normalize(const float2 a)
+{
+	return a*len_rcp(a);
+}
+
+__device_inline float2 normalize_len(const float2 a, float *t)
+{
+	*t = len(a);
+	return a/(*t);
+}
+
+/* sign manipulation */
+
+__device_inline float2 fabs(float2 a)
+{
+	return make_float2(fabsf(a.x), fabsf(a.y));
+}
+
+__device_inline float2 as_float2(const float4 a)
+{
+#ifdef __KERNEL_SSE__
+	float t0 = _mm_cvtss_f32(a);
+	float t1 = _mm_cvtss_f32(_mm_shuffle_ps(a, a, _MM_SHUFFLE(0, 0, 0, 1)));
+	return make_float2(t0, t1);
+#else
+	return make_float2(a.x, a.y);
+#endif
+}
+
+/* return a with signs copied from b */
+__device_inline float3 copysignf(const float3 a, const float3 b)
+{
+#ifdef __KERNEL_SSE__
+	__m128 signmask = _mm_castsi128_ps(_mm_set1_epi32(0x80000000));
+	__m128 abs_a = _mm_andnot_ps(signmask, a);
+	__m128 signs = _mm_and_ps(signmask, b);
+	return _mm_or_ps(abs_a, signs);
+#else
+	return float3(
+		copysign(a.x, b.x),
+		copysign(a.y, b.y),
+		copysign(a.z, b.z));
+#endif
+}
+
+/* return a with signs copied from b */
+__device_inline float4 copysignf(const float4 a, const float4 b)
+{
+#ifdef __KERNEL_SSE__
+	__m128 signmask = _mm_castsi128_ps(_mm_set1_epi32(0x80000000));
+	__m128 abs_a = _mm_andnot_ps(signmask, a);
+	__m128 signs = _mm_and_ps(signmask, b);
+	return _mm_or_ps(abs_a, signs);
+#else
+	float4 r;
+	r.x = copysign(a.x, b.x);
+	r.y = copysign(a.y, b.y);
+	r.z = copysign(a.z, b.z);
+	r.w = copysign(a.w, b.w);
+	return r;
+#endif
+}
+
+__device_inline float3 invertsigns(const float3 a)
+{
+#ifdef __KERNEL_SSE__
+	__m128 signmask = _mm_castsi128_ps(_mm_set1_epi32(0x80000000));
+	return _mm_xor_ps(signmask, a);
+#else
+	return a * make_float3(-1.0f);
+#endif
+}
+
+__device_inline float4 invertsigns(const float4 a)
+{
+#ifdef __KERNEL_SSE__
+	__m128 signmask = _mm_castsi128_ps(_mm_set1_epi32(0x80000000));
+	return _mm_xor_ps(signmask, a);
+#else
+	return a * -1.0f;
+#endif
+}
+
+#endif /* __KERNEL_OPENCL__ */
 
 /* Ray Intersection */
 

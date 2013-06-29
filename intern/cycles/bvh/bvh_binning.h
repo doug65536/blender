@@ -22,7 +22,7 @@
 
 #include "util_types.h"
 
-#define ENABLE_TRACE_BIN
+//#define ENABLE_TRACE_BIN
 #ifdef ENABLE_TRACE_BIN
 #define TRACE_BIN_ONLY(e) e
 #define TRACE_BIN(...) ((void)printf(__VA_ARGS__), (void)fflush(stdout))
