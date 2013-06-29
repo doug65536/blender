@@ -107,6 +107,31 @@ __device_inline float fminf(float a, float b)
 
 #ifndef __KERNEL_GPU__
 
+#ifdef __KERNEL_SSE__
+/* Newton-Raphson step */
+__forceinline __m128 sse_newton_raphson_ps(__m128 r, __m128 a)
+{
+	return _mm_sub_ps(_mm_add_ps(r, r), _mm_mul_ps(_mm_mul_ps(r, r), a));
+}
+
+__forceinline __m128 sse_newton_raphson_ss(__m128 r, __m128 a)
+{
+	return _mm_sub_ss(_mm_add_ss(r, r), _mm_mul_ss(_mm_mul_ss(r, r), a));
+}
+#endif
+
+__device_inline float rcp(float a)
+{
+#ifdef __KERNEL_SSE__
+	__m128 ta = _mm_set_ss(a);
+	float3 r = _mm_rcp_ss(ta);
+	r = sse_newton_raphson_ss(r, ta);
+	return _mm_cvtss_f32(r);
+#else
+	return 1.0f/a;
+#endif
+}
+
 __device_inline int max(int a, int b)
 {
 	return (a >= b)? a: b;
@@ -2437,7 +2462,7 @@ __device_inline float2 operator/(float f, const float2 a)
 
 __device_inline float2 operator/(const float2 a, float f)
 {
-	float invf = 1.0f/f;
+	float invf = rcp(f);
 	return make_float2(a.x*invf, a.y*invf);
 }
 
@@ -2493,8 +2518,7 @@ __device_inline float2 operator/=(float2& a, const float2 b)
 
 __device_inline float2 operator/=(float2& a, float f)
 {
-	float invf = 1.0f/f;
-	return a = a * invf;
+	return a = a * rcp(f);
 }
 
 
@@ -2519,13 +2543,8 @@ __device_inline float3 rcp(const float3 a)
 #if defined __KERNEL_SSE4__
 	/* preserve a.w */
 	__m128 r = _mm_rcp_ps(a);
-
-	// extra precision
-	//r = _mm_sub_ps(_mm_add_ps(r, r), _mm_mul_ps(_mm_mul_ps(r, r), t));
-
+	r = sse_newton_raphson_ps(r, a);
 	return r;
-
-	//return _mm_blend_ps(r, w, 1 << 3);
 #elif defined __KERNEL_SSE__
 	/* get 1.0 into high part */
 	__m128 highmask = _mm_castsi128_ps(_mm_cvtsi32_si128(0xFFFFFFFF));
@@ -2538,8 +2557,7 @@ __device_inline float3 rcp(const float3 a)
 
 	__m128 r = _mm_rcp_ps(t);
 
-	// extra precision
-	//r = _mm_sub_ps(_mm_add_ps(r, r), _mm_mul_ps(_mm_mul_ps(r, r), t));
+	r = sse_newton_raphson_ps(r, t);
 
 	return r;
 #else
@@ -2619,8 +2637,7 @@ __device_inline float3 operator/(float f, const float3 a)
 __device_inline float3 operator/(const float3 a, float f)
 {
 #ifdef __KERNEL_SSE__
-	float3 oof = fast_rcp(make_float3(f));
-	return a * oof;
+	return a * rcp(f);
 #else
 	float invf = 1.0f/f;
 	return make_float3(a.x*invf, a.y*invf, a.z*invf);
@@ -2719,11 +2736,10 @@ __device_inline float3 operator*=(float3& a, float f)
 #endif
 }
 
-__device_inline float3 operator/=(float3& a, const float3 b)
+__device_inline float3& operator/=(float3& a, const float3 b)
 {
 #ifdef __KERNEL_SSE__
-	a.m128 = _mm_mul_ps(a, fast_rcp(b));
-	return a;
+	return a = a * rcp(b);
 #else
 	return a = a / b;
 #endif
@@ -2732,8 +2748,10 @@ __device_inline float3 operator/=(float3& a, const float3 b)
 __device_inline float3 operator/=(float3& a, float f)
 {
 #ifdef __KERNEL_SSE__
-	a.m128 = _mm_mul_ps(a, _mm_rcp_ps(_mm_set1_ps(f)));
-	return a;
+	__m128 tf = _mm_set1_ps(f);
+	__m128 r = _mm_rcp_ps(tf);
+	r = sse_newton_raphson_ps(r, tf);
+	return a = _mm_mul_ps(a, r);
 #else
 	return a = a / f;
 #endif
@@ -2873,18 +2891,6 @@ __device_inline float4 float3_to_float4(const float3 a)
 __device_inline void print_float3(const char *label, const float3 a)
 {
 	printf("%s: %.8f %.8f %.8f\n", label, (double)a.x, (double)a.y, (double)a.z);
-}
-
-__device_inline float rcp(float a)
-{
-#ifdef __KERNEL_SSE__
-	__m128 ta = _mm_set_ss(a);
-	float3 r = _mm_rcp_ss(ta);
-	return _mm_cvtss_f32(r);
-	//return _mm_cvtss_f32(_mm_sub_ps(_mm_add_ps(r, r), _mm_mul_ps(_mm_mul_ps(r, r), ta)));
-#else
-	return 1.0f/a;
-#endif
 }
 
 #endif
@@ -3122,8 +3128,8 @@ __device_inline float4 rcp(const float4 a)
 {
 #ifdef __KERNEL_SSE__
 	float4 r = _mm_rcp_ps(a.m128);
+	r = sse_newton_raphson_ps(r, a);
 	return r;
-	//return _mm_sub_ps(_mm_add_ps(r, r), _mm_mul_ps(_mm_mul_ps(r, r), a));
 #else
 	return make_float4(1.0f/a.x, 1.0f/a.y, 1.0f/a.z, 1.0f/a.w);
 #endif
@@ -3217,7 +3223,7 @@ __device_inline float4 operator/=(float4& a, const float4 b)
 
 __device_inline float4 operator/=(float4& a, float f)
 {
-	return a = a / f;
+	return a = a * rcp(f);
 }
 
 __device_inline float dot(const float4 a, const float4 b)

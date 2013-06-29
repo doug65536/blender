@@ -51,13 +51,13 @@ static void assert_check_value(const char *func_name, const char *file, int line
 
 		if (!std::numeric_limits<T>::is_signed) {
 			/* expand to unsigned so uchar won't be printed as a number, not a character */
-			std::cerr << "***" << func_name << " FAILED. " << file << ":" << line << std::endl <<
+			std::cerr << "*U*" << func_name << " FAILED. " << file << ":" << line << std::endl <<
 				"  Expected: " << expr << "==" << (unsigned)expect << std::endl <<
 				"    Actual: " << (unsigned)actual << std::endl;
 		}
 		else {
 			/* expand to int so char won't be printed as a number, not a character */
-			std::cerr << "***" << func_name << " FAILED. " << file << ":" << line << std::endl <<
+			std::cerr << "*I*" << func_name << " FAILED. " << file << ":" << line << std::endl <<
 				"  Expected: " << expr << "==" << (int)expect << std::endl <<
 				"    Actual: " << (int)actual << std::endl;
 		}
@@ -66,11 +66,11 @@ static void assert_check_value(const char *func_name, const char *file, int line
 		/* convert to limited precision scientific notation strings to do approximate equality */
 		std::string expect_str, actual_str;
 		std::stringstream ss;
-		ss << std::scientific << std::setprecision(2) << (T)expect;
+		ss << std::scientific << std::setprecision(3) << (T)expect;
 		expect_str = ss.str();
 
 		ss.str(std::string());
-		ss << std::scientific << std::setprecision(2) << actual;
+		ss << std::scientific << std::setprecision(3) << actual;
 		actual_str = ss.str();
 
 		if (expect_str == actual_str) {
@@ -79,7 +79,7 @@ static void assert_check_value(const char *func_name, const char *file, int line
 			return;
 		}
 
-		std::cerr << "***" << func_name << " FAILED. " << file << ":" << line << std::endl <<
+		std::cerr << "*F*" << func_name << " FAILED. " << file << ":" << line << std::endl <<
 			"  Expected: " << expr << "==" << std::scientific << expect << std::endl <<
 			"    Actual: " << std::scientific << actual << std::endl;
 	}

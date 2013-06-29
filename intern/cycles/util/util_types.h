@@ -42,9 +42,9 @@
 #define __align(...) __declspec(align(__VA_ARGS__))
 #define __may_alias
 #else
-#define __device_inline static inline __attribute__((always_inline))
+#define __device_inline static inline //__attribute__((always_inline))
 #ifndef FREE_WINDOWS64
-#define __forceinline inline __attribute__((always_inline))
+#define __forceinline inline //__attribute__((always_inline))
 #endif	/* ndef FREE_WINDOWS64 */
 #define __align(...) __attribute__((aligned(__VA_ARGS__)))
 #define __may_alias __attribute__((__may_alias__))

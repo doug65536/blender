@@ -130,7 +130,7 @@ __device_inline bool bvh_triangle_intersect(KernelGlobals *kg, Intersection *ise
 	float3 dir = rcp(idir);
 
 	float Oz = dot(make_float4(invertsigns(P), 1.0f), v00);// v00.w - P.x*v00.x - P.y*v00.y - P.z*v00.z;
-	float invDz = rcp(dot(make_float4(dir, 0.0f), v00));// 1.0f/(dir.x*v00.x + dir.y*v00.y + dir.z*v00.z);
+	float invDz = rcp(dot(dir, float4_to_float3(v00)));// 1.0f/(dir.x*v00.x + dir.y*v00.y + dir.z*v00.z);
 	float t = Oz * invDz;
 
 	if(t > 0.0f && t < isect->t) {
@@ -706,23 +706,25 @@ __device_inline bool bvh_triangle_intersect_subsurface(KernelGlobals *kg, Inters
 	/* compute and check intersection t-value */
 	float4 v00 = kernel_tex_fetch(__tri_woop, triAddr*TRI_NODE_SIZE+0);
 	float4 v11 = kernel_tex_fetch(__tri_woop, triAddr*TRI_NODE_SIZE+1);
-	float3 dir = 1.0f/idir;
+	float3 dir = rcp(idir);
 
-	float Oz = v00.w - P.x*v00.x - P.y*v00.y - P.z*v00.z;
-	float invDz = 1.0f/(dir.x*v00.x + dir.y*v00.y + dir.z*v00.z);
+	float Oz = dot(make_float4(invertsigns(P), 1.0f), v00);//v00.w - P.x*v00.x - P.y*v00.y - P.z*v00.z;
+	float invDz = rcp(dot(dir, float4_to_float3(v00)));//1.0f/(dir.x*v00.x + dir.y*v00.y + dir.z*v00.z);
 	float t = Oz * invDz;
 
 	if(t > 0.0f && t < tmax) {
+		const float4 P1w = make_float4(P, 1.0f);
+
 		/* compute and check barycentric u */
-		float Ox = v11.w + P.x*v11.x + P.y*v11.y + P.z*v11.z;
-		float Dx = dir.x*v11.x + dir.y*v11.y + dir.z*v11.z;
+		float Ox = dot(v11, P1w);//v11.w + P.x*v11.x + P.y*v11.y + P.z*v11.z;
+		float Dx = dot(dir, float4_to_float3(v11));// dir.x*v11.x + dir.y*v11.y + dir.z*v11.z;
 		float u = Ox + t*Dx;
 
 		if(u >= 0.0f) {
 			/* compute and check barycentric v */
 			float4 v22 = kernel_tex_fetch(__tri_woop, triAddr*TRI_NODE_SIZE+2);
-			float Oy = v22.w + P.x*v22.x + P.y*v22.y + P.z*v22.z;
-			float Dy = dir.x*v22.x + dir.y*v22.y + dir.z*v22.z;
+			float Oy = dot(v22, P1w);// v22.w + P.x*v22.x + P.y*v22.y + P.z*v22.z;
+			float Dy = dot(dir, float4_to_float3(v22));// dir.x*v22.x + dir.y*v22.y + dir.z*v22.z;
 			float v = Oy + t*Dy;
 
 			if(v >= 0.0f && u + v <= 1.0f) {
