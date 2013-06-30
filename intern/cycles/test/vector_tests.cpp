@@ -112,6 +112,7 @@ DECLARE_TESTS(convert);
 
 DECLARE_TESTS(dot);
 DECLARE_TESTS(cross);
+DECLARE_TESTS(length);
 
 /* scalars */
 
@@ -124,6 +125,7 @@ static void runtests()
 	INVOKE_TESTS(make_scalar);
 
 	INVOKE_TESTS(rcp);
+	INVOKE_TESTS(length);
 	INVOKE_TESTS(neg);
 
 	INVOKE_TESTS(add);

@@ -38,13 +38,13 @@
 #define __constant
 
 #if defined(_WIN32) && !defined(FREE_WINDOWS)
-#define __device_inline static inline //__forceinline
+#define __device_inline static inline __forceinline
 #define __align(...) __declspec(align(__VA_ARGS__))
 #define __may_alias
 #else
-#define __device_inline static inline //__attribute__((always_inline))
+#define __device_inline static inline __attribute__((always_inline))
 #ifndef FREE_WINDOWS64
-#define __forceinline inline //__attribute__((always_inline))
+#define __forceinline inline __attribute__((always_inline))
 #endif	/* ndef FREE_WINDOWS64 */
 #define __align(...) __attribute__((aligned(__VA_ARGS__)))
 #define __may_alias __attribute__((__may_alias__))
@@ -87,7 +87,9 @@
 #endif
 
 #ifdef __KERNEL_SSE2__
+#ifndef __KERNEL_SSE__
 #define __KERNEL_SSE__
+#endif
 #endif
 
 #endif	/* ndef __KERNEL_SSE_DISABLED__ */
@@ -516,7 +518,7 @@ struct __align(16) float4 {
 	}
 	__forceinline explicit float4(const float3 &a, float w)
 	{
-#ifdef __KERNEL_SSE4__
+#if defined __KERNEL_SSE4__
 		m128 = _mm_blend_ps(a, _mm_set1_ps(w), 1 << 3);
 #else
 		/* mask off a.w */
@@ -810,6 +812,14 @@ __device_inline int align_up(int offset, int alignment)
 
 /* result.N = (mask.N == 0xFFFFFFFF ? b.N : a.N).
  * mask members must be either 0x00000000 or 0xFFFFFFFF */
+
+/* non-vector, for making branchless ternary */
+__device_inline int mask_select(bool cond, int true_val, int false_val)
+{
+	/* mask is 0xFFFFFFFF for true, 0x00000000 for false */
+	int mask = -(int)cond;
+	return (true_val & mask) | (false_val & ~mask);
+}
 
 /* select uchar2 */
 __device_inline uchar2 mask_select(const uchar2& mask, const uchar2& true_val, const uchar2& false_val)

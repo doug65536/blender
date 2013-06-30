@@ -129,7 +129,7 @@ __device_inline bool bvh_triangle_intersect(KernelGlobals *kg, Intersection *ise
 	float4 v11 = kernel_tex_fetch(__tri_woop, triAddr*TRI_NODE_SIZE+1);
 	float3 dir = rcp(idir);
 
-	float Oz = dot(make_float4(invertsigns(P), 1.0f), v00);// v00.w - P.x*v00.x - P.y*v00.y - P.z*v00.z;
+	float Oz = dot(make_float4(invert_signs(P), 1.0f), v00);// v00.w - P.x*v00.x - P.y*v00.y - P.z*v00.z;
 	float invDz = rcp(dot(dir, float4_to_float3(v00)));// 1.0f/(dir.x*v00.x + dir.y*v00.y + dir.z*v00.z);
 	float t = Oz * invDz;
 
@@ -708,7 +708,7 @@ __device_inline bool bvh_triangle_intersect_subsurface(KernelGlobals *kg, Inters
 	float4 v11 = kernel_tex_fetch(__tri_woop, triAddr*TRI_NODE_SIZE+1);
 	float3 dir = rcp(idir);
 
-	float Oz = dot(make_float4(invertsigns(P), 1.0f), v00);//v00.w - P.x*v00.x - P.y*v00.y - P.z*v00.z;
+	float Oz = dot(make_float4(invert_signs(P), 1.0f), v00);//v00.w - P.x*v00.x - P.y*v00.y - P.z*v00.z;
 	float invDz = rcp(dot(dir, float4_to_float3(v00)));//1.0f/(dir.x*v00.x + dir.y*v00.y + dir.z*v00.z);
 	float t = Oz * invDz;
 

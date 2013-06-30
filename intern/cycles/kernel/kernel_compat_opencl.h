@@ -69,16 +69,16 @@
 #undef make_int4
 #endif
 
-#define make_float2(...) ((float2)(__VA_ARGS__))
+#define make_float2(x,y) ((float2)(x,y))
 #ifdef __CL_NO_FLOAT3__
-#define make_float3(...) ((float4)(((float3)(__VA_ARGS__)), 1.0f))
+#define make_float3(x,y,z) ((float4)(((float3)((x), (y), (z), 1.0f))))
 #else
-#define make_float3(...) ((float3)(__VA_ARGS__))
+#define make_float3(x,y,z) ((float3)((x),(y),(z)))
 #endif
-#define make_float4(...) ((float4)(__VA_ARGS__))
-#define make_int2(...) ((int2)(__VA_ARGS__))
-#define make_int3(...) ((int3)(__VA_ARGS__))
-#define make_int4(...) ((int4)(__VA_ARGS__))
+#define make_float4(x,y,z,w) ((float4)((x),(y),(z),(w)))
+#define make_int2(x,y) ((int2)((x),(y)))
+#define make_int3(x,y,z) ((int3)((x),(y),(z))
+#define make_int4(x,y,z,w) ((int4)((x),(y),(z),(w)))
 
 /* math functions */
 #define __uint_as_float(x) as_float(x)

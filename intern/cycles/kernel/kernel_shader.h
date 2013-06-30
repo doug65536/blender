@@ -101,7 +101,7 @@ void shader_setup_from_ray(KernelGlobals *kg, ShaderData *sd,
 #endif
 		/* fetch triangle data */
 		float4 Ns = kernel_tex_fetch(__tri_normal, sd->prim);
-		float3 Ng = make_float3(Ns.x, Ns.y, Ns.z);
+		float3 Ng = float4_to_float3(Ns);
 		sd->shader = __float_as_int(Ns.w);
 
 #ifdef __HAIR__
@@ -201,7 +201,7 @@ __device_inline void shader_setup_from_subsurface(KernelGlobals *kg, ShaderData 
 #endif
 		/* fetch triangle data */
 		float4 Ns = kernel_tex_fetch(__tri_normal, sd->prim);
-		float3 Ng = make_float3(Ns.x, Ns.y, Ns.z);
+		float3 Ng = float4_to_float3(Ns);
 		sd->shader = __float_as_int(Ns.w);
 
 #ifdef __HAIR__

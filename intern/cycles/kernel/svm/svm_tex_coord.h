@@ -214,7 +214,7 @@ __device void svm_node_normal_map(KernelGlobals *kg, ShaderData *sd, float *stac
 	decode_node_uchar4(node.y, &color_offset, &strength_offset, &normal_offset, &space);
 
 	float3 color = stack_load_float3(stack, color_offset);
-	color = 2.0f*make_float3(color.x - 0.5f, color.y - 0.5f, color.z - 0.5f);
+	color = 2.0f*(color - make_float3(0.5f));
 
 	float3 N;
 

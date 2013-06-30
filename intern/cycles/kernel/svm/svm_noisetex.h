@@ -39,8 +39,8 @@ __device_inline void svm_noise(float3 p, float scale, float detail, float distor
 
 	*fac = noise_turbulence(p, basis, detail, hard);
 	*color = make_float3(*fac,
-		noise_turbulence(make_float3(p.y, p.x, p.z), basis, detail, hard),
-		noise_turbulence(make_float3(p.y, p.z, p.x), basis, detail, hard));
+		noise_turbulence(S_yxz(p), basis, detail, hard),
+		noise_turbulence(S_yzx(p), basis, detail, hard));
 }
 
 __device void svm_node_tex_noise(KernelGlobals *kg, ShaderData *sd, float *stack, uint4 node, int *offset)

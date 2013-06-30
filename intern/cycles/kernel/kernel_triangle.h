@@ -61,7 +61,7 @@ __device_inline float3 triangle_normal_MT(KernelGlobals *kg, int tri_index, int 
 #else
 	float4 Nm = kernel_tex_fetch(__tri_normal, tri_index);
 	*shader = __float_as_int(Nm.w);
-	return make_float3(Nm.x, Nm.y, Nm.z);
+	return float4_to_float3(Nm);
 #endif
 }
 

@@ -66,11 +66,11 @@ static void assert_check_value(const char *func_name, const char *file, int line
 		/* convert to limited precision scientific notation strings to do approximate equality */
 		std::string expect_str, actual_str;
 		std::stringstream ss;
-		ss << std::scientific << std::setprecision(3) << (T)expect;
+		ss << std::scientific << std::setprecision(6) << (T)expect;
 		expect_str = ss.str();
 
 		ss.str(std::string());
-		ss << std::scientific << std::setprecision(3) << actual;
+		ss << std::scientific << std::setprecision(6) << actual;
 		actual_str = ss.str();
 
 		if (expect_str == actual_str) {

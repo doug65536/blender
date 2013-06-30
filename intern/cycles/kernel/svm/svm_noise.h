@@ -232,8 +232,8 @@ __device_noinline float cellnoise(float3 p)
 __device float3 cellnoise_color(float3 p)
 {
 	float r = cellnoise(p);
-	float g = cellnoise(make_float3(p.y, p.x, p.z));
-	float b = cellnoise(make_float3(p.y, p.z, p.x));
+	float g = cellnoise(S_yxz(p));
+	float b = cellnoise(S_yzx(p));
 
 	return make_float3(r, g, b);
 }

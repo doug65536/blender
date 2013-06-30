@@ -211,7 +211,7 @@ __device_inline float3 object_dupli_generated(KernelGlobals *kg, int object)
 
 	int offset = object*OBJECT_SIZE + OBJECT_DUPLI;
 	float4 f = kernel_tex_fetch(__objects, offset);
-	return make_float3(f.x, f.y, f.z);
+	return float4_to_float3(f);
 }
 
 __device_inline float3 object_dupli_uv(KernelGlobals *kg, int object)
@@ -269,7 +269,7 @@ __device float3 particle_location(KernelGlobals *kg, int particle)
 {
 	int offset = particle*PARTICLE_SIZE;
 	float4 f = kernel_tex_fetch(__particles, offset + 2);
-	return make_float3(f.x, f.y, f.z);
+	return float4_to_float3(f);
 }
 
 __device float3 particle_velocity(KernelGlobals *kg, int particle)

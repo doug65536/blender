@@ -271,7 +271,7 @@ __device void svm_node_tex_image(KernelGlobals *kg, ShaderData *sd, float *stack
 	float4 f = svm_image_texture(kg, id, co.x, co.y, srgb, use_alpha);
 
 	if(stack_valid(out_offset))
-		stack_store_float3(stack, out_offset, make_float3(f.x, f.y, f.z));
+		stack_store_float3(stack, out_offset, float4_to_float3(f));
 	if(stack_valid(alpha_offset))
 		stack_store_float(stack, alpha_offset, f.w);
 }
@@ -359,7 +359,7 @@ __device void svm_node_tex_image_box(KernelGlobals *kg, ShaderData *sd, float *s
 		f += weight.z*svm_image_texture(kg, id, co.y, co.x, srgb, use_alpha);
 
 	if(stack_valid(out_offset))
-		stack_store_float3(stack, out_offset, make_float3(f.x, f.y, f.z));
+		stack_store_float3(stack, out_offset, float4_to_float3(f));
 	if(stack_valid(alpha_offset))
 		stack_store_float(stack, alpha_offset, f.w);
 }
@@ -387,7 +387,7 @@ __device void svm_node_tex_environment(KernelGlobals *kg, ShaderData *sd, float 
 	float4 f = svm_image_texture(kg, id, uv.x, uv.y, srgb, use_alpha);
 
 	if(stack_valid(out_offset))
-		stack_store_float3(stack, out_offset, make_float3(f.x, f.y, f.z));
+		stack_store_float3(stack, out_offset, float4_to_float3(f));
 	if(stack_valid(alpha_offset))
 		stack_store_float(stack, alpha_offset, f.w);
 }

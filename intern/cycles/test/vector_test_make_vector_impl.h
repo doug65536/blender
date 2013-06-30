@@ -577,6 +577,31 @@ TEST_FUNCTION(cross)
 
 }
 
+TEST_FUNCTION(length)
+{
+#if defined VECTOR_IS_FLOAT && VECTOR_SIZE == 3
+	VECTOR_TYPE_NAME n0 = MAKE_VECTOR_FUNCTION MAKE_VECTOR_PARAMS(
+			1.329227996e8f, 511111.0f, 3.4567890123f, 0);
+
+	VECTOR_TYPE t, t2, returned_len;
+
+	t2 = n0.x*n0.x + n0.y*n0.y + n0.z*n0.z;
+
+	t = len_squared(n0);
+	VERIFY(t, t2);
+
+	t2 = sqrt(t2);
+
+	t = len(n0);
+	VERIFY(t, t2);
+
+	n0 = normalize_len(n0, &returned_len);
+	VERIFY(returned_len, t2);
+
+	VERIFY(len(n0), 1.0f);
+#endif
+}
+
 /* scalar tests are done in VECTOR_SIZE == 3 case,
  * because most cases of just one size of vector being supported is type3 */
 

@@ -30,11 +30,17 @@
  */
 
 //#define ENABLE_TRACE_BVH_INTERSECT
-
 #ifdef ENABLE_TRACE_BVH_INTERSECT
 #define TRACE_BVH_INTERSECT(...) printf(__VA_ARGS__)
 #else
 #define TRACE_BVH_INTERSECT(...) ((void)0)
+#endif
+
+#define ENABLE_TRACE_LOOPS
+#ifdef ENABLE_TRACE_BVH_LOOPS
+#define TRACE_BVH_LOOPS(...)	__VA_ARGS__
+#else
+#define TRACE_BVH_LOOPS(...) ((void)0)
 #endif
 
 #define FEATURE(f) (((BVH_FUNCTION_FEATURES) & (f)) != 0)
@@ -95,26 +101,53 @@ __device bool BVH_FUNCTION_NAME
 	const int4 pn = make_int4(0, 0, 0x80000000, 0x80000000);
 	float4 Psplat[3], idirsplat[3];
 
-	Psplat[0] = _mm_set_ps1(P.x);
-	Psplat[1] = _mm_set_ps1(P.y);
-	Psplat[2] = _mm_set_ps1(P.z);
+	float4 tmp4 = as_float4(P);
+	Psplat[0] = S_xxxx(tmp4);// _mm_set_ps1(P.x);
+	Psplat[1] = S_yyyy(tmp4);// _mm_set_ps1(P.y);
+	Psplat[2] = S_zzzz(tmp4);// _mm_set_ps1(P.z);
 
-	idirsplat[0] = _mm_xor_ps(_mm_set_ps1(idir.x), _mm_castsi128_ps(pn));
-	idirsplat[1] = _mm_xor_ps(_mm_set_ps1(idir.y), _mm_castsi128_ps(pn));
-	idirsplat[2] = _mm_xor_ps(_mm_set_ps1(idir.z), _mm_castsi128_ps(pn));
+	tmp4 = as_float4(idir);
+	idirsplat[0] = _mm_xor_ps(S_xxxx(tmp4), _mm_castsi128_ps(pn));
+	idirsplat[1] = _mm_xor_ps(S_yyyy(tmp4), _mm_castsi128_ps(pn));
+	idirsplat[2] = _mm_xor_ps(S_zzzz(tmp4), _mm_castsi128_ps(pn));
 
 	__m128 tsplat = _mm_set_ps(-isect->t, -isect->t, 0.0f, 0.0f);
 
+#if 1
 	shuffle_swap_t shufflex = (idir.x >= 0)? shuf_identity: shuf_swap;
 	shuffle_swap_t shuffley = (idir.y >= 0)? shuf_identity: shuf_swap;
 	shuffle_swap_t shufflez = (idir.z >= 0)? shuf_identity: shuf_swap;
+#else
+
+#if defined __KERNEL_SSSE3__
+	float4 tmp2 = make_float4(0, 0, 0, 0);
+	shuffle_swap_t shufflex = mask_select(S_xxxx(tmp4) >= tmp2, shuf_identity, shuf_swap);
+	shuffle_swap_t shuffley = mask_select(S_yyyy(tmp4) >= tmp2, shuf_identity, shuf_swap);
+	shuffle_swap_t shufflez = mask_select(S_zzzz(tmp4) >= tmp2, shuf_identity, shuf_swap);
+#else
+	shuffle_swap_t shufflex = mask_select(idir.x >= 0, shuf_identity, shuf_swap);
+	shuffle_swap_t shuffley = mask_select(idir.y >= 0, shuf_identity, shuf_swap);
+	shuffle_swap_t shufflez = mask_select(idir.z >= 0, shuf_identity, shuf_swap);
 #endif
+
+#endif
+
+#endif
+
+	TRACE_BVH_LOOPS(unsigned loops[4]);
+	TRACE_BVH_LOOPS(loops[0] = 0);
+	TRACE_BVH_LOOPS(loops[1] = 0);
+	TRACE_BVH_LOOPS(loops[2] = 0);
+	TRACE_BVH_LOOPS(loops[3] = 0);
 
 	/* traversal loop */
 	do {
+		TRACE_BVH_LOOPS(++loops[0]);
 		do {
+			TRACE_BVH_LOOPS(++loops[1]);
 			/* traverse internal nodes */
 			while(nodeAddr >= 0 && nodeAddr != ENTRYPOINT_SENTINEL) {
+				TRACE_BVH_LOOPS(++loops[2]);
 				bool traverseChild0, traverseChild1;
 				int nodeAddrChild1;
 
@@ -127,6 +160,9 @@ __device bool BVH_FUNCTION_NAME
 				float4 node1 = kernel_tex_fetch(__bvh_nodes, nodeAddr*BVH_NODE_SIZE+1);
 				float4 node2 = kernel_tex_fetch(__bvh_nodes, nodeAddr*BVH_NODE_SIZE+2);
 				float4 cnodes = kernel_tex_fetch(__bvh_nodes, nodeAddr*BVH_NODE_SIZE+3);
+
+				//float3 c0lo;
+				//float3 c0hi;
 
 				/* intersect ray against child nodes */
 				NO_EXTENDED_PRECISION float c0lox = (node0.x - P.x) * idir.x;
@@ -183,7 +219,6 @@ __device bool BVH_FUNCTION_NAME
 				const __m128 tminmaxx = _mm_mul_ps(_mm_sub_ps(shuffle_swap(bvh_nodes[0], shufflex), Psplat[0]), idirsplat[0]);
 				const __m128 tminmaxy = _mm_mul_ps(_mm_sub_ps(shuffle_swap(bvh_nodes[1], shuffley), Psplat[1]), idirsplat[1]);
 				const __m128 tminmaxz = _mm_mul_ps(_mm_sub_ps(shuffle_swap(bvh_nodes[2], shufflez), Psplat[2]), idirsplat[2]);
-
 				const __m128 tminmax = _mm_xor_ps(_mm_max_ps(_mm_max_ps(tminmaxx, tminmaxy), _mm_max_ps(tminmaxz, tsplat)), _mm_castsi128_ps(pn));
 				const __m128 lrhit = _mm_cmple_ps(tminmax, shuffle_swap(tminmax, shuf_swap));
 
@@ -206,9 +241,16 @@ __device bool BVH_FUNCTION_NAME
 #if !defined(__KERNEL_SSE2__) || FEATURE(BVH_HAIR_MINIMUM_WIDTH)
 					bool closestChild1 = (c1min < c0min);
 #else
+
+#if 0
 					union { __m128 m128; float v[4]; } uminmax;
 					uminmax.m128 = tminmax;
 					bool closestChild1 = uminmax.v[1] < uminmax.v[0];
+#else
+					__m128 closeCmp = _mm_cmplt_ss(_mm_shuffle_ps(tminmax, tminmax, _MM_SHUFFLE(3, 2, 1, 1)), tminmax);
+					bool closestChild1 = _mm_movemask_ps(closeCmp) & 1;
+#endif
+
 #endif
 
 					if(closestChild1) {
@@ -253,6 +295,7 @@ __device bool BVH_FUNCTION_NAME
 
 					/* primitive intersection */
 					while(primAddr < primAddr2) {
+						TRACE_BVH_LOOPS(++loops[3]);
 						bool hit;
 
 #if FEATURE(BVH_SUBSURFACE)
@@ -298,14 +341,17 @@ __device bool BVH_FUNCTION_NAME
 							/* shadow ray early termination */
 #if defined(__KERNEL_SSE2__) && !FEATURE(BVH_HAIR_MINIMUM_WIDTH)
 							if(hit) {
-								if(visibility == PATH_RAY_SHADOW_OPAQUE)
+								if(visibility == PATH_RAY_SHADOW_OPAQUE) {
+									TRACE_BVH_LOOPS(printf("visi, loop counts: %3u { %3u { %3u %3u }}\n", loops[0], loops[1], loops[2], loops[3]));
 									return true;
+								}
 
 								tsplat = _mm_set_ps(-isect->t, -isect->t, 0.0f, 0.0f);
 							}
 #else
 							if(hit && visibility == PATH_RAY_SHADOW_OPAQUE) {
 								TRACE_BVH_INTERSECT("Returning: hit && visibility == PATH_RAY_SHADOW_OPAQUE\n");
+								TRACE_BVH_LOOPS(printf("htop, loop counts: %3u { %3u { %3u %3u }}\n", loops[0], loops[1], loops[2], loops[3]));
 								return true;
 							}
 #endif
@@ -332,13 +378,17 @@ __device bool BVH_FUNCTION_NAME
 #endif
 
 #if defined(__KERNEL_SSE2__) && !FEATURE(BVH_HAIR_MINIMUM_WIDTH)
-						Psplat[0] = _mm_set_ps1(P.x);
-						Psplat[1] = _mm_set_ps1(P.y);
-						Psplat[2] = _mm_set_ps1(P.z);
+						float4 tmp;
 
-						idirsplat[0] = _mm_xor_ps(_mm_set_ps1(idir.x), _mm_castsi128_ps(pn));
-						idirsplat[1] = _mm_xor_ps(_mm_set_ps1(idir.y), _mm_castsi128_ps(pn));
-						idirsplat[2] = _mm_xor_ps(_mm_set_ps1(idir.z), _mm_castsi128_ps(pn));
+						tmp = as_float4(P);
+						Psplat[0] = S_xxxx(tmp);// _mm_set_ps1(P.x);
+						Psplat[1] = S_yyyy(tmp);// _mm_set_ps1(P.y);
+						Psplat[2] = S_zzzz(tmp);// _mm_set_ps1(P.z);
+
+						tmp = as_float4(idir);
+						idirsplat[0] = _mm_xor_ps(S_xxxx(tmp)/*_mm_set_ps1(idir.x)*/, _mm_castsi128_ps(pn));
+						idirsplat[1] = _mm_xor_ps(S_yyyy(tmp)/*_mm_set_ps1(idir.y)*/, _mm_castsi128_ps(pn));
+						idirsplat[2] = _mm_xor_ps(S_zzzz(tmp)/*_mm_set_ps1(idir.z)*/, _mm_castsi128_ps(pn));
 
 						tsplat = _mm_set_ps(-isect->t, -isect->t, 0.0f, 0.0f);
 
@@ -399,6 +449,8 @@ __device bool BVH_FUNCTION_NAME
 		}
 #endif
 	} while(nodeAddr != ENTRYPOINT_SENTINEL);
+
+	TRACE_BVH_LOOPS(printf("done, loop counts: %3u { %3u { %3u %3u }}\n", loops[0], loops[1], loops[2], loops[3]));
 
 #if FEATURE(BVH_SUBSURFACE)
 	TRACE_BVH_INTERSECT("Done (subsurface), hits = %d\n", num_hits);

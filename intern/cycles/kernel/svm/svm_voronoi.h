@@ -52,7 +52,7 @@ __device void svm_node_tex_voronoi(KernelGlobals *kg, ShaderData *sd, float *sta
 	float scale = stack_load_float_default(stack, scale_offset, node.w);
 
 	float4 result = svm_voronoi((NodeVoronoiColoring)coloring, scale, co);
-	float3 color = make_float3(result.x, result.y, result.z);
+	float3 color = float4_to_float3(result);
 	float f = result.w;
 
 	if(stack_valid(fac_offset)) stack_store_float(stack, fac_offset, f);

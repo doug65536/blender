@@ -2887,6 +2887,18 @@ __device_inline float4 float3_to_float4(const float3 a)
 }
 
 #ifndef __KERNEL_GPU__
+/* reinterpret as float4, value of returned w is not defined */
+__device_inline float4 as_float4(const float3 a)
+{
+#if defined __KERNEL_SSE__
+	return a.m128;
+#else
+	return float3_to_float4(a);
+#endif
+}
+#endif
+
+#ifndef __KERNEL_GPU__
 
 __device_inline void print_float3(const char *label, const float3 a)
 {
@@ -3665,7 +3677,7 @@ __device_inline float4 copysignf(const float4 a, const float4 b)
 #endif
 }
 
-__device_inline float3 invertsigns(const float3 a)
+__device_inline float3 invert_signs(const float3 a)
 {
 #ifdef __KERNEL_SSE__
 	__m128 signmask = _mm_castsi128_ps(_mm_set1_epi32(0x80000000));
@@ -3675,7 +3687,7 @@ __device_inline float3 invertsigns(const float3 a)
 #endif
 }
 
-__device_inline float4 invertsigns(const float4 a)
+__device_inline float4 invert_signs(const float4 a)
 {
 #ifdef __KERNEL_SSE__
 	__m128 signmask = _mm_castsi128_ps(_mm_set1_epi32(0x80000000));

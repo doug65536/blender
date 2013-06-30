@@ -347,16 +347,16 @@ __device_inline Transform transform_quick_inverse(Transform M)
 	Transform R;
 	float det = M.x.x*(M.z.z*M.y.y - M.z.y*M.y.z) - M.y.x*(M.z.z*M.x.y - M.z.y*M.x.z) + M.z.x*(M.y.z*M.x.y - M.y.y*M.x.z);
 
-	det = (det != 0.0f)? 1.0f/det: 0.0f;
+	det = (det != 0.0f)? rcp(det): 0.0f;
 
 	float3 Rx = det*make_float3(M.z.z*M.y.y - M.z.y*M.y.z, M.z.y*M.x.z - M.z.z*M.x.y, M.y.z*M.x.y - M.y.y*M.x.z);
 	float3 Ry = det*make_float3(M.z.x*M.y.z - M.z.z*M.y.x, M.z.z*M.x.x - M.z.x*M.x.z, M.y.x*M.x.z - M.y.z*M.x.x);
 	float3 Rz = det*make_float3(M.z.y*M.y.x - M.z.x*M.y.y, M.z.x*M.x.y - M.z.y*M.x.x, M.y.y*M.x.x - M.y.x*M.x.y);
 	float3 T = -make_float3(M.x.w, M.y.w, M.z.w);
 
-	R.x = make_float4(Rx.x, Rx.y, Rx.z, dot(Rx, T));
-	R.y = make_float4(Ry.x, Ry.y, Ry.z, dot(Ry, T));
-	R.z = make_float4(Rz.x, Rz.y, Rz.z, dot(Rz, T));
+	R.x = make_float4(Rx, dot(Rx, T));
+	R.y = make_float4(Ry, dot(Ry, T));
+	R.z = make_float4(Rz, dot(Rz, T));
 	R.w = make_float4(0.0f, 0.0f, 0.0f, 1.0f);
 
 	return R;
