@@ -34,6 +34,9 @@
 	/* example: make_float4 */
 	#define MAKE_VECTOR_FUNCTION JOIN(make_, VECTOR_TYPE_NAME)
 
+	/* example: make_float4_1 */
+	#define MAKE_VECTOR_FUNCTION_1 JOIN(MAKE_VECTOR_FUNCTION, _1)
+
 	/* example: make_int4 */
 	#define MAKE_INT_VECTOR_FUNCTION JOIN(make_, INT_TYPE_NAME)
 
@@ -111,7 +114,7 @@ TEST_FUNCTION(make_vector)
 
 TEST_FUNCTION(make_scalar)
 {
-	VECTOR_TYPE_NAME n = MAKE_VECTOR_FUNCTION (2);
+	VECTOR_TYPE_NAME n = MAKE_VECTOR_FUNCTION_1 (2);
 
 	VERIFY_XYZW(n, 2, 2, 2, 2);
 }
@@ -689,4 +692,36 @@ TEST_FUNCTION(copysign)
 	n1 = MAKE_VECTOR_FUNCTION MAKE_VECTOR_PARAMS(-6,-7,-8,-9);
 	VERIFY_XYZW(n1,-2,-3,-4,-5);
 #endif
+}
+
+TEST_FUNCTION(perf)
+{
+	uint64_t iter = (uint64_t)1 << 24;
+
+	Stopwatch sw;
+
+	VECTOR_TYPE_NAME n0 = MAKE_VECTOR_FUNCTION MAKE_VECTOR_PARAMS(2, 1, 4, 3);
+
+	VECTOR_TYPE_NAME t0 = MAKE_VECTOR_FUNCTION MAKE_VECTOR_PARAMS(0, 1, 2, 3);
+	VECTOR_TYPE_NAME dummy1;
+	volatile VECTOR_TYPE_NAME dummy0;
+
+	sw.start();
+	do {
+		n0 += t0 * MAKE_VECTOR_FUNCTION MAKE_VECTOR_PARAMS(rand(), 2, 3, 4);
+		n0 += t0 * MAKE_VECTOR_FUNCTION MAKE_VECTOR_PARAMS(1, rand(), 3, 4);
+		n0 += t0 * MAKE_VECTOR_FUNCTION MAKE_VECTOR_PARAMS(1, 2, rand(), 4);
+		n0 += t0 * MAKE_VECTOR_FUNCTION MAKE_VECTOR_PARAMS(1, 2, 3, rand());
+
+		n0 -= t0 * MAKE_VECTOR_FUNCTION MAKE_VECTOR_PARAMS(rand(), 2, 3, 4);
+		n0 -= t0 * MAKE_VECTOR_FUNCTION MAKE_VECTOR_PARAMS(1, rand(), 3, 4);
+		n0 -= t0 * MAKE_VECTOR_FUNCTION MAKE_VECTOR_PARAMS(1, 2, rand(), 4);
+		n0 -= t0 * MAKE_VECTOR_FUNCTION MAKE_VECTOR_PARAMS(1, 2, 3, rand());
+	} while(--iter);
+	sw.stop();
+
+	// dummy output to fool optimizer
+	std::cout << n0.x << std::endl;
+
+	std::cout << FUNCTION_NAME << " multiply/add test: " << sw.elapsed() << " microseconds" << std::endl;
 }

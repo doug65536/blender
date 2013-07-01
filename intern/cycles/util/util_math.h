@@ -1137,7 +1137,7 @@ __device_inline uchar2& operator-=(uchar2& a, const uchar2 b)
 
 __device_inline uchar2& operator-=(uchar2& a, const uchar b)
 {
-	return a = a - make_uchar2(b);
+	return a = a - make_uchar2_1(b);
 }
 
 __device_inline uchar2& operator+=(uchar2& a, const uchar2 b)
@@ -1147,7 +1147,7 @@ __device_inline uchar2& operator+=(uchar2& a, const uchar2 b)
 
 __device_inline uchar2& operator+=(uchar2& a, const uchar b)
 {
-	return a = a + make_uchar2(b);
+	return a = a + make_uchar2_1(b);
 }
 
 __device_inline uchar2& operator*=(uchar2& a, const uchar2 b)
@@ -1273,7 +1273,7 @@ __device_inline uchar3& operator+=(uchar3& a, const uchar3 b)
 
 __device_inline uchar3& operator+=(uchar3& a, const uchar b)
 {
-	return a = a + make_uchar3(b);
+	return a = a + make_uchar3_1(b);
 }
 
 __device_inline uchar3& operator-=(uchar3& a, const uchar3 b)
@@ -1283,7 +1283,7 @@ __device_inline uchar3& operator-=(uchar3& a, const uchar3 b)
 
 __device_inline uchar3& operator-=(uchar3& a, const uchar b)
 {
-	return a = a - make_uchar3(b);
+	return a = a - make_uchar3_1(b);
 }
 
 __device_inline uchar3& operator*=(uchar3& a, const uchar3 b)
@@ -1409,7 +1409,7 @@ __device_inline uchar4& operator+=(uchar4& a, const uchar4 b)
 
 __device_inline uchar4& operator+=(uchar4& a, const uchar b)
 {
-	return a = a + make_uchar4(b);
+	return a = a + make_uchar4_1(b);
 }
 
 __device_inline uchar4& operator-=(uchar4& a, const uchar4 b)
@@ -1419,7 +1419,7 @@ __device_inline uchar4& operator-=(uchar4& a, const uchar4 b)
 
 __device_inline uchar4& operator-=(uchar4& a, const uchar b)
 {
-	return a = a - make_uchar4(b);
+	return a = a - make_uchar4_1(b);
 }
 
 __device_inline uchar4& operator*=(uchar4& a, const uchar4 b)
@@ -1545,7 +1545,7 @@ __device_inline uint2& operator+=(uint2& a, const uint2 b)
 
 __device_inline uint2& operator+=(uint2& a, const uint b)
 {
-	return a = a + make_uint2(b);
+	return a = a + make_uint2_1(b);
 }
 
 __device_inline uint2& operator-=(uint2& a, const uint2 b)
@@ -1555,7 +1555,7 @@ __device_inline uint2& operator-=(uint2& a, const uint2 b)
 
 __device_inline uint2& operator-=(uint2& a, const uint b)
 {
-	return a = a - make_uint2(b);
+	return a = a - make_uint2_1(b);
 }
 
 __device_inline uint2& operator*=(uint2& a, const uint2 b)
@@ -1692,7 +1692,7 @@ __device_inline uint3& operator+=(uint3& a, const uint3 b)
 
 __device_inline uint3& operator+=(uint3& a, const uint b)
 {
-	return a = a + make_uint3(b);
+	return a = a + make_uint3_1(b);
 }
 
 __device_inline uint3& operator-=(uint3& a, const uint3 b)
@@ -1702,7 +1702,7 @@ __device_inline uint3& operator-=(uint3& a, const uint3 b)
 
 __device_inline uint3& operator-=(uint3& a, const uint b)
 {
-	return a = a - make_uint3(b);
+	return a = a - make_uint3_1(b);
 }
 
 __device_inline uint3& operator*=(uint3& a, const uint3 b)
@@ -1886,7 +1886,7 @@ __device_inline uint4& operator+=(uint4& a, const uint4 b)
 
 __device_inline uint4& operator+=(uint4& a, const uint b)
 {
-	return a = a + make_uint4(b);
+	return a = a + make_uint4_1(b);
 }
 
 __device_inline uint4& operator-=(uint4& a, const uint4 b)
@@ -1896,7 +1896,7 @@ __device_inline uint4& operator-=(uint4& a, const uint4 b)
 
 __device_inline uint4& operator-=(uint4& a, const uint b)
 {
-	return a = a - make_uint4(b);
+	return a = a - make_uint4_1(b);
 }
 
 __device_inline uint4& operator*=(uint4& a, const uint4 b)
@@ -2040,7 +2040,7 @@ __device_inline int2& operator+=(int2& a, const int2 b)
 
 __device_inline int2& operator+=(int2& a, const int b)
 {
-	return a = a + make_int2(b);
+	return a = a + make_int2_1(b);
 }
 
 __device_inline int2& operator-=(int2& a, const int2 b)
@@ -2050,7 +2050,7 @@ __device_inline int2& operator-=(int2& a, const int2 b)
 
 __device_inline int2& operator-=(int2& a, const int b)
 {
-	return a = a - make_int2(b);
+	return a = a - make_int2_1(b);
 }
 
 __device_inline int2 operator*=(int2& a, const int2 b)
@@ -2189,7 +2189,7 @@ __device_inline int3& operator+=(int3& a, const int3 b)
 
 __device_inline int3& operator+=(int3& a, const int b)
 {
-	return a = a + make_int3(b);
+	return a = a + make_int3_1(b);
 }
 
 __device_inline int3& operator-=(int3& a, const int3 b)
@@ -2199,7 +2199,7 @@ __device_inline int3& operator-=(int3& a, const int3 b)
 
 __device_inline int3& operator-=(int3& a, const int b)
 {
-	return a = a - make_int3(b);
+	return a = a - make_int3_1(b);
 }
 
 __device_inline int3& operator*=(int3& a, const int3 b)
@@ -2366,7 +2366,7 @@ __device_inline int4& operator+=(int4& a, const int4 b)
 
 __device_inline int4& operator+=(int4& a, const int b)
 {
-	return a = a + make_int4(b);
+	return a = a + make_int4_1(b);
 }
 
 __device_inline int4& operator-=(int4& a, const int4 b)
@@ -2376,7 +2376,7 @@ __device_inline int4& operator-=(int4& a, const int4 b)
 
 __device_inline int4& operator-=(int4& a, const int b)
 {
-	return a = a - make_int4(b);
+	return a = a - make_int4_1(b);
 }
 
 __device_inline int4& operator*=(int4& a, const int4 b)
@@ -2488,7 +2488,7 @@ __device_inline float2 operator+=(float2& a, const float2 b)
 
 __device_inline float2 operator+=(float2& a, const float b)
 {
-	return a = a + make_float2(b);
+	return a = a + make_float2_1(b);
 }
 
 __device_inline float2 operator-=(float2& a, const float2 b)
@@ -2498,7 +2498,7 @@ __device_inline float2 operator-=(float2& a, const float2 b)
 
 __device_inline float2 operator-=(float2& a, const float b)
 {
-	return a = a - make_float2(b);
+	return a = a - make_float2_1(b);
 }
 
 __device_inline float2 operator*=(float2& a, const float2 b)
@@ -2688,7 +2688,7 @@ __device_inline float3 operator+=(float3& a, const float b)
 	a = _mm_add_ps(a, _mm_set1_ps(b));
 	return a;
 #else
-	a = a + make_float3(b);
+	a = a + make_float3_1(b);
 	return a;
 #endif
 }
@@ -2710,7 +2710,7 @@ __device_inline float3 operator-=(float3& a, const float b)
 	a = _mm_sub_ps(a, _mm_set1_ps(b));
 	return a;
 #else
-	a = a - make_float3(b);
+	a = a - make_float3_1(b);
 	return a;
 #endif
 }
@@ -3125,7 +3125,7 @@ __device_inline float4 operator*(const float4 a, const float4 b)
 __device_inline float4 operator*(const float4 a, float f)
 {
 #ifdef __KERNEL_SSE__
-	return a * make_float4(f);
+	return a * make_float4_1(f);
 #else
 	return make_float4(a.x*f, a.y*f, a.z*f, a.w*f);
 #endif
@@ -3205,7 +3205,7 @@ __device_inline float4 operator+=(float4& a, const float4 b)
 
 __device_inline float4 operator+=(float4& a, const float b)
 {
-	return a = a + make_float4(b);
+	return a = a + make_float4_1(b);
 }
 
 __device_inline float4 operator-=(float4& a, const float4 b)
@@ -3215,7 +3215,7 @@ __device_inline float4 operator-=(float4& a, const float4 b)
 
 __device_inline float4 operator-=(float4& a, const float b)
 {
-	return a = a - make_float4(b);
+	return a = a - make_float4_1(b);
 }
 
 __device_inline float4 operator*=(float4& a, const float4 b)
@@ -3225,7 +3225,7 @@ __device_inline float4 operator*=(float4& a, const float4 b)
 
 __device_inline float4 operator*=(float4& a, const float b)
 {
-	return a = a * make_float4(b);
+	return a = a * make_float4_1(b);
 }
 
 __device_inline float4 operator/=(float4& a, const float4 b)
@@ -3333,7 +3333,7 @@ __device_inline float4 reduce_min(const float4 a)
 	float4 h = min(S_yxwz(a), a);
 	return min(S_zwxy(h), h);
 #else
-	return make_float4(min(min(a.x, a.y), min(a.z, a.w)));
+	return make_float4_1(min(min(a.x, a.y), min(a.z, a.w)));
 #endif
 }
 
@@ -3343,7 +3343,7 @@ __device_inline float4 reduce_max(const float4 a)
 	float4 h = max(shuffle<1,0,3,2>(a), a);
 	return max(shuffle<2,3,0,1>(h), h);
 #else
-	return make_float4(max(max(a.x, a.y), max(a.z, a.w)));
+	return make_float4_1(max(max(a.x, a.y), max(a.z, a.w)));
 #endif
 }
 
@@ -3485,7 +3485,7 @@ __device_inline void make_orthonormals(const float3 N, float3 *a, float3 *b)
 __device_inline float3 safe_divide_color(float3 a, float3 b)
 {
 	float3 inverseb = rcp(b);
-	float3 zerof = make_float3(0);
+	float3 zerof = make_float3_1(0);
 	return mask_select(b != zerof, a * inverseb, zerof);
 }
 
@@ -3683,7 +3683,7 @@ __device_inline float3 invert_signs(const float3 a)
 	__m128 signmask = _mm_castsi128_ps(_mm_set1_epi32(0x80000000));
 	return _mm_xor_ps(signmask, a);
 #else
-	return a * make_float3(-1.0f);
+	return a * make_float3_1(-1.0f);
 #endif
 }
 

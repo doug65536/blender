@@ -69,7 +69,7 @@ template<typename T> struct texture_image  {
 
 	__forceinline float4 read(uchar4 r)
 	{
-		float4 rcpf = make_float4(1.0f/255.0f);
+		float4 rcpf = make_float4_1(1.0f/255.0f);
 		float4 color = convert_float4(r);
 		return color * rcpf;
 	}

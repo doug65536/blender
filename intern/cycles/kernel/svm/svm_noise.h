@@ -115,10 +115,10 @@ __device float3 fade3(const float3 t)
 {
 	float3 t3 = t * t * t;
 	float3 t0 = t;
-	t0 *= make_float3(6.0f);
-	t0 -= make_float3(15.0f);
+	t0 *= make_float3_1(6.0f);
+	t0 -= make_float3_1(15.0f);
 	t0 *= t;
-	t0 += make_float3(10.0f);
+	t0 += make_float3_1(10.0f);
 	t0 *= t3;
 	return t0;
 }
@@ -178,7 +178,7 @@ __device_noinline float perlin_periodic(float x, float y, float z, float3 pperio
 
 	int3 p;
 
-	p = max(quick_floor(pperiod), make_int3(1));
+	p = max(quick_floor(pperiod), make_int3_1(1));
 
 	//p.x = max(quick_floor(pperiod.x), 1);
 	//p.y = max(quick_floor(pperiod.y), 1);

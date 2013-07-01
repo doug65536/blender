@@ -64,18 +64,18 @@
 
 #ifndef __KERNEL_SSE_DISABLED__
 
-#ifndef __KERNEL_SSE__
-#define __KERNEL_SSE__
-#endif
-
 /* SSE2 is always available on x86_64 CPUs, so auto enable */
 #if defined(__x86_64__) && !defined(__KERNEL_SSE2__)
 #define __KERNEL_SSE2__
 #endif
 
+#ifndef __KERNEL_SSE__
+#define __KERNEL_SSE__
+#endif
+
 /* newer versions of SSE imply older versions */
 #ifdef __KERNEL_SSE4__
-#define __KERNEL_SSE3__
+#define __KERNEL_SSSE3__
 #endif
 
 #ifdef __KERNEL_SSSE3__
@@ -170,7 +170,7 @@ typedef int32_t ssize_t;
 
 #endif
 
-#if defined __KERNEL_SSE__
+#if defined(__KERNEL_SSE__)
 #define SSE_ALIGN __align(16)
 #else
 #define SSE_ALIGN
@@ -258,7 +258,7 @@ struct SSE_ALIGN int3 {
 	{
 		m128 = _mm_set1_epi32(n);
 	}
-	__forceinline int3(__m128i a) : m128(a) {}
+	__forceinline int3(const __m128i a) : m128(a) {}
 	__forceinline operator const __m128i&(void) const { return m128; }
 	__forceinline operator __m128i&(void) { return m128; }
 
@@ -327,9 +327,9 @@ struct SSE_ALIGN int4 {
 	//__forceinline operator bool() const { return x && y && z && w; }
 #endif
 
-#if defined __GNUC___ && defined __KERNEL_SSE__
+#if defined(__GNUC__) && defined(__KERNEL_SSE__)
 	__forceinline int operator[](int i) const { return m128[i]; }
-	__forceinline int& operator[](int i) { return m128[i]; }
+	//__forceinline int& operator[](int i) { return m128[i]; }
 #else
 	__forceinline int operator[](int i) const { return *(&x + i); }
 	__forceinline int& operator[](int i) { return *(&x + i); }
@@ -481,8 +481,9 @@ struct SSE_ALIGN float3 {
 		m128 = _mm_set1_ps(n);
 	}
 	__forceinline float3(const __m128 a) : m128(a) {}
-	__forceinline operator const __m128&(void) const { return m128; }
-	__forceinline operator __m128&(void) { return m128; }
+	__forceinline operator const __m128(void) const { return m128; }
+	__forceinline operator __m128(void) { return m128; }
+	__forceinline __m128 operator=(const __m128 r) { return m128 = r; }
 #else
 	__forceinline explicit float3(float n) : x(n), y(n), z(n) {}
 	__forceinline float3(float x, float y, float z) : x(x), y(y), z(z) {}
@@ -495,7 +496,7 @@ struct SSE_ALIGN float3 {
 
 struct __align(16) float4 {
 #ifdef __KERNEL_SSE__
-	union {
+	union __align(16) {
 		__m128 m128;
 		struct { float x, y, z, w; };
 	};
@@ -564,9 +565,9 @@ struct __align(16) float4 {
 
 /* uchar constructors */
 
-__device_inline uchar2 make_uchar2(uchar n)
+__device_inline uchar2 make_uchar2_1(uchar n)
 {
-	return uchar2(n);
+	return uchar2(n, n);
 }
 
 __device_inline uchar2 make_uchar2(uchar x, uchar y)
@@ -574,7 +575,7 @@ __device_inline uchar2 make_uchar2(uchar x, uchar y)
 	return uchar2(x, y);
 }
 
-__device_inline uchar3 make_uchar3(uchar n)
+__device_inline uchar3 make_uchar3_1(uchar n)
 {
 	return uchar3(n);
 }
@@ -584,7 +585,7 @@ __device_inline uchar3 make_uchar3(uchar x, uchar y, uchar z)
 	return uchar3(x, y, z);
 }
 
-__device_inline uchar4 make_uchar4(uchar n)
+__device_inline uchar4 make_uchar4_1(uchar n)
 {
 	return uchar4(n);
 }
@@ -601,7 +602,7 @@ __device_inline uchar4 make_uchar4(const uchar3 &a, uchar w)
 
 /* uint constructors */
 
-__device_inline uint2 make_uint2(uint n)
+__device_inline uint2 make_uint2_1(uint n)
 {
 	return uint2(n);
 }
@@ -611,7 +612,7 @@ __device_inline uint2 make_uint2(uint x, uint y)
 	return uint2(x, y);
 }
 
-__device_inline uint3 make_uint3(uint n)
+__device_inline uint3 make_uint3_1(uint n)
 {
 	return uint3(n);
 }
@@ -621,7 +622,7 @@ __device_inline uint3 make_uint3(uint x, uint y, uint z)
 	return uint3(x, y, z);
 }
 
-__device_inline uint4 make_uint4(uint n)
+__device_inline uint4 make_uint4_1(uint n)
 {
 	return uint4(n);
 }
@@ -631,14 +632,14 @@ __device_inline uint4 make_uint4(uint x, uint y, uint z, uint w)
 	return uint4(x, y, z, w);
 }
 
-__device_inline uint4 make_uint4(const uint3 &a, uint w)
+__device_inline uint4 make_uint4_31(const uint3 &a, uint w)
 {
 	return uint4(a, w);
 }
 
 /* int constructors */
 
-__device_inline int2 make_int2(int n)
+__device_inline int2 make_int2_1(int n)
 {
 	return int2(n);
 }
@@ -648,7 +649,7 @@ __device_inline int2 make_int2(int x, int y)
 	return int2(x, y);
 }
 
-__device_inline int3 make_int3(int n)
+__device_inline int3 make_int3_1(int n)
 {
 	return int3(n);
 }
@@ -658,7 +659,7 @@ __device_inline int3 make_int3(int x, int y, int z)
 	return int3(x, y, z);
 }
 
-__device_inline int4 make_int4(int n)
+__device_inline int4 make_int4_1(int n)
 {
 	return int4(n);
 }
@@ -668,14 +669,14 @@ __device_inline int4 make_int4(int x, int y, int z, int w)
 	return int4(x, y, z, w);
 }
 
-__device_inline int4 make_int4(const int3 &a, int w)
+__device_inline int4 make_int4_31(const int3 &a, int w)
 {
 	return int4(a, w);
 }
 
 /* float constructors */
 
-__device_inline float2 make_float2(float n)
+__device_inline float2 make_float2_1(float n)
 {
 	return float2(n);
 }
@@ -685,7 +686,24 @@ __device_inline float2 make_float2(float x, float y)
 	return float2(x, y);
 }
 
-__device_inline float3 make_float3(float n)
+#if defined(__GNUC__) && defined(__KERNEL_SSE__)
+
+//#define make_float3_1(n) float3((__m128){(n)})
+//#define make_float3(x,y,z) float3((__m128){0.0f,(z),(y),(x)})
+
+__device_inline float3 make_float3_1(float n)
+{
+	return float3((__m128){(n)});
+}
+
+__device_inline float3 make_float3(float x, float y, float z)
+{
+	return float3((__m128){0.0f, (z), (y), (x)});
+}
+
+#else
+
+__device_inline float3 make_float3_1(float n)
 {
 	return float3(n);
 }
@@ -695,7 +713,31 @@ __device_inline float3 make_float3(float x, float y, float z)
 	return float3(x, y, z);
 }
 
-__device_inline float4 make_float4(float n)
+#endif
+
+#if defined(__GNUC__) && defined(__KERNEL_SSE2__)
+
+//#define make_float4_1(n) float4((__m128){(n)})
+//#define make_float4_31(f3, s) float4((f3), (s))
+//#define make_float4(x,y,z,w) float4((__m128){(w),(z),(y),(x)})
+
+__device_inline float4 make_float4_1(float n)
+{
+	return float4((__m128){(n)});
+}
+
+__device_inline float4 make_float4(float x, float y, float z, float w)
+{
+	return float4((__m128){(w), (z), (y), (x)});
+}
+
+__device_inline float4 make_float4_31(const float3 &f3, float w)
+{
+	return __builtin_shuffle(f3.m128, (__m128){(w)}, (__v4si){4, 2, 1, 0});
+}
+
+#else
+__device_inline float4 make_float4_1(float n)
 {
 	return float4(n);
 }
@@ -705,15 +747,16 @@ __device_inline float4 make_float4(float x, float y, float z, float w)
 	return float4(x, y, z, w);
 }
 
-__device_inline float4 make_float4(const float3 &a, float w)
+__device_inline float4 make_float4_31(const float3 &a, float w)
 {
-	return float4(a, w);
+	return float4(a.x, a.y, a.z, w);
 }
 
 __device_inline float4 make_float4(const float3 &a)
 {
-	return float4(a, 1.0f);
+	return float4(a.x, a.y, a.z, 1.0f);
 }
+#endif
 
 /* conversions */
 

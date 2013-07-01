@@ -156,6 +156,24 @@ public:
 			int start_sample = tile.start_sample;
 			int end_sample = tile.start_sample + tile.num_samples;
 
+#if 0 // experiment: reorganize loop to maximize cache coherency. exactly same speed on my machine
+			for(int y = tile.y; y < tile.y + tile.h; y++) {
+				if (task.get_cancel() || task_pool.cancelled()) {
+					if(task.need_finish_queue == false)
+						break;
+				}
+
+				for(int x = tile.x; x < tile.x + tile.w; x++) {
+					for(int sample = start_sample; sample < end_sample; sample++) {
+						tile.sample = sample + 1;
+						path_trace_impl(&kg, render_buffer, rng_state,
+							sample, x, y, tile.offset, tile.stride);
+					}
+				}
+
+				task.update_progress(tile);
+			}
+#else // original implementation here:
 			for(int sample = start_sample; sample < end_sample; sample++) {
 				if (task.get_cancel() || task_pool.cancelled()) {
 					if(task.need_finish_queue == false)
@@ -173,6 +191,7 @@ public:
 
 				task.update_progress(tile);
 			}
+#endif
 
 			task.release_tile(tile);
 

@@ -8,9 +8,7 @@
  *
  *  = 45 tests per test case
  *
- * 17 test cases
- *
- * 765 tests
+ * 33 cases -> 1485 tests
  */
 
 #include <string.h>
@@ -119,7 +117,11 @@ DECLARE_TESTS(length);
 DECLARE_TESTS(float_as_int);
 DECLARE_TESTS(int_as_float);
 
-static void runtests()
+/* performance */
+
+DECLARE_TESTS(perf);
+
+static void runtests(bool perf_test)
 {
 	INVOKE_TESTS(make_vector);
 	INVOKE_TESTS(make_scalar);
@@ -167,6 +169,11 @@ static void runtests()
 
 	INVOKE_TESTS(float_as_int);
 	INVOKE_TESTS(int_as_float);
+
+	if (perf_test) {
+		/* performance */
+		INVOKE_TESTS(perf);
+	}
 }
 
 CCL_NAMESPACE_END
@@ -186,17 +193,25 @@ static void usage()
 
 int main(int argc, char **argv)
 {
+	bool test_perf = false;
+
 	for (int i = 1; i < argc; ++i) {
 		if (!strcmp(argv[i], "--help") || !strcmp(argv[i], "-?"))
 			usage();
 		else if (!strcmp(argv[i], "--verbose") || !strcmp(argv[i], "-v"))
 			ccl::verbose = true;
+		else if (!strcmp(argv[i], "--no-verbose"))
+			ccl::verbose = false;
+		else if (!strcmp(argv[i], "--perf") || !strcmp(argv[i], "-p"))
+			test_perf = true;
+		else if (!strcmp(argv[i], "--no-perf"))
+			test_perf = false;
 		else
 			bad_argument(argv[i]);
 	}
 
 	if (!ccl::failed)
-		ccl::runtests();
+		ccl::runtests(test_perf);
 
 	return ccl::failed ? 1 : 0;
 }

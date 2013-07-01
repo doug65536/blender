@@ -8,18 +8,20 @@
 
 #elif TEST_VARIATION == 2
 
-#define __KERNEL_SSE__ 1
+//#define __KERNEL_SSE__ 1
+#define __KERNEL_SSE2__ 1
 
 #elif TEST_VARIATION == 3
 
-#define __KERNEL_SSE__ 1
+//#define __KERNEL_SSE__ 1
 #define __KERNEL_SSE3__ 1
 
 #elif TEST_VARIATION == 4
 
-#define __KERNEL_SSE__ 1
-#define __KERNEL_SSE3__ 1
-#define __KERNEL_SSSE3__ 1
+//#define __KERNEL_SSE__ 1
+//#define __KERNEL_SSE2__ 1
+//#define __KERNEL_SSE3__ 1
+//#define __KERNEL_SSSE3__ 1
 #define __KERNEL_SSE4__ 1
 
 #else
@@ -38,6 +40,55 @@ CCL_NAMESPACE_BEGIN
 
 extern bool verbose;
 extern bool failed;
+
+/* get microseconds since epoch, portably */
+#ifndef WIN32
+#include <sys/time.h>
+static inline uint64_t microsec_since_epoch()
+{
+	struct timeval t;
+	gettimeofday(&t, NULL);
+	return t.tv_sec * 1000000 + t.tv_usec;
+}
+#else
+/* windows.h expected to have been included already */
+static inline uint64_t microsec_since_epoch()
+{
+	LARGE_INTEGER t, f;
+	QueryPerformanceCounter(&t);
+	QueryPerformanceFrequency(&f);
+	return (t.QuadPart * 1000000) / f.QuadPart;
+}
+#endif
+
+/* performance measurements */
+class Stopwatch
+{
+	uint64_t st, en;
+
+public:
+	Stopwatch() : st(0), en(0) {}
+
+	void start()
+	{
+		st = microsec_since_epoch();
+	}
+
+	void stop()
+	{
+		en = microsec_since_epoch();
+	}
+
+	uint64_t elapsed()
+	{
+		return en - st;
+	}
+
+	uint64_t peek()
+	{
+		return microsec_since_epoch() - st;
+	}
+};
 
 template<typename T, typename U>
 static void assert_check_value(const char *func_name, const char *file, int line, const char *expr, const U& expect, const T& actual)
@@ -93,16 +144,15 @@ static void assert_check_value(const char *func_name, const char *file, int line
 }
 
 #if defined _MSC_VER
-#define test_assert_equal(expr, expect) \
-	assert_check_value(__FUNCDNAME__, __FILE__, __LINE__, #expr, (expect), (expr))
+#define FUNCTION_NAME __FUNCDNAME__
 #elif defined __GNUC__
-#define test_assert_equal(expr, expect) \
-	assert_check_value(__FUNCTION__, __FILE__, __LINE__, #expr, (expect), (expr))
+#define FUNCTION_NAME __FUNCTION__
 #else
-/* don't know how to get function name on this compiler */
-#define test_assert_equal(expr, expect) \
-	assert_check_value("", __FILE__, __LINE__, #expr, (expect), (expr))
+#define FUNCTION_NAME "<unknown function>"
 #endif
+
+#define test_assert_equal(expr, expect) \
+	assert_check_value(FUNCTION_NAME, __FILE__, __LINE__, #expr, (expect), (expr))
 
 /* each generated test can check whether the type is integer (non-float) or unsigned */
 #define VECTOR_IS_INTEGER

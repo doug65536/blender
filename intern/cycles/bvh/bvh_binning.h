@@ -54,7 +54,7 @@ public:
 protected:
 	int dim;			/* best split dimension */
 	int pos;			/* best split position */
-	size_t num_bins;	/* actual number of bins to use */
+	int num_bins;		/* actual number of bins to use */
 	float3 scale;		/* scaling factor to compute bin */
 
 	enum { MAX_BINS = 32 };
@@ -63,14 +63,14 @@ protected:
 	/* computes the bin numbers for each dimension for a box. */
 	__forceinline int4 get_bin(const BoundBox& box) const
 	{
-		float4 fa = make_float4((box.center2() - cent_bounds().min)*scale - make_float3(0.5f), 0.0f);
+		float4 fa = make_float4_31((box.center2() - cent_bounds().min)*scale - make_float3_1(0.5f), 0.0f);
 		TRACE_BIN("fa = %.1e %.1e %.1e %.1e\n", fa.x, fa.y, fa.z, fa.w);
 
 		int4 a = convert_int4(fa);
 		TRACE_BIN("a = %d %d %d %d\n", a.x, a.y, a.z, a.w);
 
-		int4 mn = make_int4(0);
-		int4 mx = make_int4((int)num_bins-1);
+		int4 mn = make_int4_1(0);
+		int4 mx = make_int4_1((int)num_bins-1);
 
 		int4 r = clamp(a, mn, mx);
 		TRACE_BIN("r = %d %d %d %d\n", r.x, r.y, r.z, r.w);
@@ -81,14 +81,14 @@ protected:
 	/* computes the bin numbers for each dimension for a point. */
 	__forceinline int4 get_bin(const float3& c) const
 	{
-		float4 f = make_float4((c - cent_bounds().min)*scale - make_float3(0.5f), 0);
+		float4 f = make_float4_31((c - cent_bounds().min)*scale - make_float3_1(0.5f), 0);
 		return convert_int4(f);
 	}
 
 	/* compute the number of blocks occupied for each dimension. */
 	__forceinline float4 blocks(const int4& a) const
 	{
-		return convert_float4((a + make_int4((1 << LOG_BLOCK_SIZE)-1)) >> LOG_BLOCK_SIZE);
+		return convert_float4((a + make_int4_1((1 << LOG_BLOCK_SIZE)-1)) >> LOG_BLOCK_SIZE);
 	}
 
 	/* compute the number of blocks occupied in one dimension. */

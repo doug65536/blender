@@ -354,9 +354,9 @@ __device_inline Transform transform_quick_inverse(Transform M)
 	float3 Rz = det*make_float3(M.z.y*M.y.x - M.z.x*M.y.y, M.z.x*M.x.y - M.z.y*M.x.x, M.y.y*M.x.x - M.y.x*M.x.y);
 	float3 T = -make_float3(M.x.w, M.y.w, M.z.w);
 
-	R.x = make_float4(Rx, dot(Rx, T));
-	R.y = make_float4(Ry, dot(Ry, T));
-	R.z = make_float4(Rz, dot(Rz, T));
+	R.x = make_float4_31(Rx, dot(Rx, T));
+	R.y = make_float4_31(Ry, dot(Ry, T));
+	R.z = make_float4_31(Rz, dot(Rz, T));
 	R.w = make_float4(0.0f, 0.0f, 0.0f, 1.0f);
 
 	return R;

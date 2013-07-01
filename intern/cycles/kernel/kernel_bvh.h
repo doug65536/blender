@@ -54,7 +54,7 @@ __device_inline float3 bvh_inverse_direction(const float3 dir)
 
 	float3 idir;
 	float3 absdir = fabs(dir);
-	float3 ooeps3 = make_float3(8.2718061255302767e-25f);// 2.0**-80.0
+	float3 ooeps3 = make_float3_1(8.2718061255302767e-25f);// 2.0**-80.0
 	float3 ooeps3cs = copysignf(ooeps3, dir);
 
 	float3 result = mask_select(absdir > ooeps3, dir, ooeps3cs);
@@ -129,12 +129,12 @@ __device_inline bool bvh_triangle_intersect(KernelGlobals *kg, Intersection *ise
 	float4 v11 = kernel_tex_fetch(__tri_woop, triAddr*TRI_NODE_SIZE+1);
 	float3 dir = rcp(idir);
 
-	float Oz = dot(make_float4(invert_signs(P), 1.0f), v00);// v00.w - P.x*v00.x - P.y*v00.y - P.z*v00.z;
+	float Oz = dot(make_float4_31(invert_signs(P), 1.0f), v00);// v00.w - P.x*v00.x - P.y*v00.y - P.z*v00.z;
 	float invDz = rcp(dot(dir, float4_to_float3(v00)));// 1.0f/(dir.x*v00.x + dir.y*v00.y + dir.z*v00.z);
 	float t = Oz * invDz;
 
 	if(t > 0.0f && t < isect->t) {
-		const float4 P1w = make_float4(P, 1.0f);
+		const float4 P1w = make_float4_31(P, 1.0f);
 
 		/* compute and check barycentric u */
 		float Ox = dot(v11, P1w);// v11.w + P.x*v11.x + P.y*v11.y + P.z*v11.z;
@@ -708,12 +708,12 @@ __device_inline bool bvh_triangle_intersect_subsurface(KernelGlobals *kg, Inters
 	float4 v11 = kernel_tex_fetch(__tri_woop, triAddr*TRI_NODE_SIZE+1);
 	float3 dir = rcp(idir);
 
-	float Oz = dot(make_float4(invert_signs(P), 1.0f), v00);//v00.w - P.x*v00.x - P.y*v00.y - P.z*v00.z;
+	float Oz = dot(make_float4_31(invert_signs(P), 1.0f), v00);//v00.w - P.x*v00.x - P.y*v00.y - P.z*v00.z;
 	float invDz = rcp(dot(dir, float4_to_float3(v00)));//1.0f/(dir.x*v00.x + dir.y*v00.y + dir.z*v00.z);
 	float t = Oz * invDz;
 
 	if(t > 0.0f && t < tmax) {
-		const float4 P1w = make_float4(P, 1.0f);
+		const float4 P1w = make_float4_31(P, 1.0f);
 
 		/* compute and check barycentric u */
 		float Ox = dot(v11, P1w);//v11.w + P.x*v11.x + P.y*v11.y + P.z*v11.z;

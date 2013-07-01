@@ -164,6 +164,9 @@ __device bool BVH_FUNCTION_NAME
 				//float3 c0lo;
 				//float3 c0hi;
 
+				//float3 c0lo = S_xxzz(node0);
+				//float3 c0hi = S_
+
 				/* intersect ray against child nodes */
 				NO_EXTENDED_PRECISION float c0lox = (node0.x - P.x) * idir.x;
 				NO_EXTENDED_PRECISION float c0hix = (node0.z - P.x) * idir.x;

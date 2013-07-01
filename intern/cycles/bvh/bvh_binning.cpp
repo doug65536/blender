@@ -61,7 +61,7 @@ BVHObjectBinning::BVHObjectBinning(const BVHRange& job, BVHReference *prims)
 
 	float3 cbs = cent_bounds().size();
 	float3 rcpcbs = rcp(cbs);
-	scale = rcpcbs * make_float3(num_bins);
+	scale = rcpcbs * make_float3_1((float)num_bins);
 
 	//scale = rcp(cent_bounds().size()) * make_float3((float)num_bins);
 
@@ -73,7 +73,7 @@ BVHObjectBinning::BVHObjectBinning(const BVHRange& job, BVHReference *prims)
 	int4 bin_count[MAX_BINS];			/* number of primitives mapped to bin */
 
 	for(size_t i = 0; i < num_bins; i++) {
-		bin_count[i] = make_int4(0);
+		bin_count[i] = make_int4_1(0);
 		bin_bounds[i][0] = bin_bounds[i][1] = bin_bounds[i][2] = BoundBox::empty;
 	}
 
@@ -159,7 +159,7 @@ BVHObjectBinning::BVHObjectBinning(const BVHRange& job, BVHReference *prims)
 	/* sweep from right to left and compute parallel prefix of merged bounds */
 	float4 r_area[MAX_BINS];	/* area of bounds of primitives on the right */
 	float4 r_count[MAX_BINS];	/* number of primitives on the right */
-	int4 count = make_int4(0);
+	int4 count = make_int4_1(0);
 
 	BoundBox bx = BoundBox::empty;
 	BoundBox by = BoundBox::empty;
@@ -176,17 +176,17 @@ BVHObjectBinning::BVHObjectBinning(const BVHRange& job, BVHReference *prims)
 	}
 
 	/* sweep from left to right and compute SAH */
-	int4 ii = make_int4(1);
-	float4 bestSAH = make_float4(FLT_MAX);
-	int4 bestSplit = make_int4(-1);
+	int4 ii = make_int4_1(1);
+	float4 bestSAH = make_float4_1(FLT_MAX);
+	int4 bestSplit = make_int4_1(-1);
 
-	count = make_int4(0);
+	count = make_int4_1(0);
 
 	bx = BoundBox::empty;
 	by = BoundBox::empty;
 	bz = BoundBox::empty;
 
-	for(size_t i = 1; i < num_bins; i++, ii += make_int4(1)) {
+	for(size_t i = 1; i < num_bins; i++, ii += make_int4_1(1)) {
 		count = count + bin_count[i-1];
 
 		bx = merge(bx,bin_bounds[i-1][0]); float Ax = bx.half_area();
@@ -202,10 +202,10 @@ BVHObjectBinning::BVHObjectBinning(const BVHRange& job, BVHReference *prims)
 	}
 
 	/* make mask for elements of cent_bounds.size() that are <= 0.0f */
-	int4 mask = float3_to_float4(cent_bounds().size()) <= make_float4(0.0f);
+	int4 mask = float3_to_float4(cent_bounds().size()) <= make_float4_1(0.0f);
 
 	/* make elements with <= 0.0f bound size = FLT_MAX */
-	bestSAH = mask_select(mask, make_float4(FLT_MAX), bestSAH);
+	bestSAH = mask_select(mask, make_float4_1(FLT_MAX), bestSAH);
 	bestSAH = insert<3>(bestSAH, FLT_MAX);
 
 	TRACE_BIN("bestSAH = %.1e %.1e %.1e\n", bestSAH.x, bestSAH.y, bestSAH.z);

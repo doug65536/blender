@@ -65,8 +65,8 @@ Transform TextureMapping::compute_transform()
 
 bool TextureMapping::skip()
 {
-	const float3 zero = make_float3(0.0f);
-	const float3 one = make_float3(1.0f);
+	const float3 zero = make_float3_1(0.0f);
+	const float3 one = make_float3_1(1.0f);
 
 	if(is_notequal(translation, zero))
 		return false;
