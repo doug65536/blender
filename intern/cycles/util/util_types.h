@@ -327,7 +327,7 @@ struct SSE_ALIGN int4 {
 	//__forceinline operator bool() const { return x && y && z && w; }
 #endif
 
-#if defined(__GNUC__) && defined(__KERNEL_SSE__)
+#if defined(__GNUC__) && defined(__KERNEL_SSE__) && ((__GNUC__*10000+__GNUC_MINOR__*100+__GNUC_PATCHLEVEL__) >= 40800) && 0
 	__forceinline int operator[](int i) const { return m128[i]; }
 	//__forceinline int& operator[](int i) { return m128[i]; }
 #else
@@ -686,19 +686,19 @@ __device_inline float2 make_float2(float x, float y)
 	return float2(x, y);
 }
 
-#if defined(__GNUC__) && defined(__KERNEL_SSE__)
+#if defined(__GNUC__) && defined(__KERNEL_SSE__) && 1
 
 //#define make_float3_1(n) float3((__m128){(n)})
 //#define make_float3(x,y,z) float3((__m128){0.0f,(z),(y),(x)})
 
 __device_inline float3 make_float3_1(float n)
 {
-	return float3((__m128){(n)});
+	return float3((__m128)(__v4sf){(n),(n),(n),(n)});
 }
 
 __device_inline float3 make_float3(float x, float y, float z)
 {
-	return float3((__m128){0.0f, (z), (y), (x)});
+	return float3((__m128)(__v4sf){(x), (y), (z), 0.0f});//, (z), (y), (x)});
 }
 
 #else
@@ -715,7 +715,7 @@ __device_inline float3 make_float3(float x, float y, float z)
 
 #endif
 
-#if defined(__GNUC__) && defined(__KERNEL_SSE2__)
+#if defined(__GNUC__) && defined(__KERNEL_SSE2__) && 1
 
 //#define make_float4_1(n) float4((__m128){(n)})
 //#define make_float4_31(f3, s) float4((f3), (s))
@@ -723,17 +723,18 @@ __device_inline float3 make_float3(float x, float y, float z)
 
 __device_inline float4 make_float4_1(float n)
 {
-	return float4((__m128){(n)});
+	return float4((__m128)(__v4sf){(n),(n),(n),(n)});
 }
 
 __device_inline float4 make_float4(float x, float y, float z, float w)
 {
-	return float4((__m128){(w), (z), (y), (x)});
+	return float4((__m128){(x), (y), (z), (w)});
 }
 
 __device_inline float4 make_float4_31(const float3 &f3, float w)
 {
-	return __builtin_shuffle(f3.m128, (__m128){(w)}, (__v4si){4, 2, 1, 0});
+	//return __builtin_shuffle(f3.m128, (__m128){(w),(w),(w),(w)}, (__v4si){0, 1, 2, 4});
+	return (__m128){f3.m128[0], f3.m128[1], f3.m128[2], w};
 }
 
 #else
@@ -1545,6 +1546,20 @@ void *malloc_aligned(size_t size, size_t alignment);
 
 void free_aligned(void *ptr);
 
+#endif
+
+/* single element extraction */
+
+#ifdef __KERNEL_OPENCL__
+#define S_x(v)	v.x
+#define S_y(v)	v.y
+#define S_z(v)	v.z
+#define S_w(v)	v.w
+#else
+#define S_x(v)	extract<0>(v)
+#define S_y(v)	extract<1>(v)
+#define S_z(v)	extract<2>(v)
+#define S_w(v)	extract<3>(v)
 #endif
 
 /* 2 element swizzle */
