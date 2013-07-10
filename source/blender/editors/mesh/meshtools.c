@@ -88,9 +88,10 @@ int join_mesh_exec(bContext *C, wmOperator *op)
 	Key *key, *nkey = NULL;
 	KeyBlock *kb, *okb, *kbn;
 	float imat[4][4], cmat[4][4], *fp1, *fp2;
-	int a, b, totcol, totmat = 0, totedge = 0, totvert = 0, ok = 0;
+	int a, b, totcol, totmat = 0, totedge = 0, totvert = 0;
 	int totloop = 0, totpoly = 0, vertofs, *matmap = NULL;
 	int i, j, index, haskey = 0, edgeofs, loopofs, polyofs;
+	bool ok = false;
 	bDeformGroup *dg, *odg;
 	MDeformVert *dvert;
 	CustomData vdata, edata, fdata, ldata, pdata;
@@ -119,7 +120,7 @@ int join_mesh_exec(bContext *C, wmOperator *op)
 			totmat += base->object->totcol;
 			
 			if (base->object == ob)
-				ok = 1;
+				ok = true;
 			
 			/* check for shapekeys */
 			if (me->key)
@@ -129,7 +130,7 @@ int join_mesh_exec(bContext *C, wmOperator *op)
 	CTX_DATA_END;
 	
 	/* that way the active object is always selected */ 
-	if (ok == 0) {
+	if (ok == false) {
 		BKE_report(op->reports, RPT_WARNING, "Active object is not a selected mesh");
 		return OPERATOR_CANCELLED;
 	}
@@ -939,9 +940,9 @@ static int mesh_get_x_mirror_vert_topo(Object *ob, int index)
 	return mesh_topo_store.index_lookup[index];
 }
 
-int mesh_get_x_mirror_vert(Object *ob, int index)
+int mesh_get_x_mirror_vert(Object *ob, int index, const bool use_topology)
 {
-	if (((Mesh *)ob->data)->editflag & ME_EDIT_MIRROR_TOPO) {
+	if (use_topology) {
 		return mesh_get_x_mirror_vert_topo(ob, index);
 	}
 	else {
@@ -1001,9 +1002,9 @@ static BMVert *editbmesh_get_x_mirror_vert_topo(Object *ob, struct BMEditMesh *e
 	return NULL;
 }	
 
-BMVert *editbmesh_get_x_mirror_vert(Object *ob, struct BMEditMesh *em, BMVert *eve, const float co[3], int index)
+BMVert *editbmesh_get_x_mirror_vert(Object *ob, struct BMEditMesh *em, BMVert *eve, const float co[3], int index, const bool use_topology)
 {
-	if (((Mesh *)ob->data)->editflag & ME_EDIT_MIRROR_TOPO) {
+	if (use_topology) {
 		return editbmesh_get_x_mirror_vert_topo(ob, em, eve, index);
 	}
 	else {
@@ -1121,6 +1122,7 @@ int *mesh_get_x_mirror_faces(Object *ob, BMEditMesh *em)
 	MVert *mv, *mvert = me->mvert;
 	MFace mirrormf, *mf, *hashmf, *mface = me->mface;
 	GHash *fhash;
+	const bool use_topology = (me->editflag & ME_EDIT_MIRROR_TOPO) != 0;
 	int *mirrorverts, *mirrorfaces;
 	int a;
 
@@ -1130,7 +1132,7 @@ int *mesh_get_x_mirror_faces(Object *ob, BMEditMesh *em)
 	mesh_octree_table(ob, em, NULL, 's');
 
 	for (a = 0, mv = mvert; a < me->totvert; a++, mv++)
-		mirrorverts[a] = mesh_get_x_mirror_vert(ob, a);
+		mirrorverts[a] = mesh_get_x_mirror_vert(ob, a, use_topology);
 
 	mesh_octree_table(ob, em, NULL, 'e');
 
