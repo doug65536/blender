@@ -27,7 +27,8 @@ __device_inline float4 svm_image_texture_read(KernelGlobals *kg, int offset)
 {
 	uchar4 r = kernel_tex_fetch(__tex_image_packed, offset);
 	float f = 1.0f/255.0f;
-	return make_float4(r.x*f, r.y*f, r.z*f, r.w*f);
+	//return make_float4(r.x*f, r.y*f, r.z*f, r.w*f);
+	return convert_float4(r) * make_float4_1(f);
 }
 
 __device_inline int svm_image_texture_wrap_periodic(int x, int width)
