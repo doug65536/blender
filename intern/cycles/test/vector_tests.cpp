@@ -111,6 +111,7 @@ DECLARE_TESTS(convert);
 DECLARE_TESTS(dot);
 DECLARE_TESTS(cross);
 DECLARE_TESTS(length);
+DECLARE_TESTS(reduce_add);
 
 /* scalars */
 
@@ -128,6 +129,7 @@ static void runtests(bool perf_test)
 
 	INVOKE_TESTS(rcp);
 	INVOKE_TESTS(length);
+	INVOKE_TESTS(reduce_add);
 	INVOKE_TESTS(neg);
 
 	INVOKE_TESTS(add);

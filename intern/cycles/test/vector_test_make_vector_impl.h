@@ -694,6 +694,22 @@ TEST_FUNCTION(copysign)
 #endif
 }
 
+TEST_FUNCTION(reduce_add)
+{
+#ifdef VECTOR_IS_FLOAT
+	VECTOR_TYPE_NAME n0 = MAKE_VECTOR_FUNCTION MAKE_VECTOR_PARAMS(2, 1, 4, 3);
+	VECTOR_TYPE t0 = reduce_add(n0);
+
+#if VECTOR_SIZE == 2
+	VERIFY(t0, 2+1);
+#elif VECTOR_SIZE == 3
+	VERIFY(t0, 2+1+4);
+#elif VECTOR_SIZE == 4
+	VERIFY(t0, 2+1+4+3);
+#endif
+#endif
+}
+
 TEST_FUNCTION(perf)
 {
 	uint64_t iter = (uint64_t)1 << 24;
