@@ -27,7 +27,7 @@
 #define CCL_NAMESPACE_END
 
 #ifdef __KERNEL_OPENCL_AMD__
-#define __CL_NO_FLOAT3__
+//#define __CL_NO_FLOAT3__
 #endif
 
 #ifdef __CL_NO_FLOAT3__
@@ -72,13 +72,20 @@
 #define make_float2(x,y) ((float2)(x,y))
 #ifdef __CL_NO_FLOAT3__
 #define make_float3(x,y,z) ((float4)(((float3)((x), (y), (z), 1.0f))))
+#define make_float3_1(n) ((float4)(n))
 #else
 #define make_float3(x,y,z) ((float3)((x),(y),(z)))
+#define make_float3_1(n) ((float3)(n))
 #endif
 #define make_float4(x,y,z,w) ((float4)((x),(y),(z),(w)))
+#define make_float4_1(n) ((float4)((n)))
+#define make_float4_31(v,w) ((float4)((v.x),(v.y),(v.z),(w)))
 #define make_int2(x,y) ((int2)((x),(y)))
-#define make_int3(x,y,z) ((int3)((x),(y),(z))
+#define make_int3(x,y,z) ((int3)((x),(y),(z)))
+#define make_int3_1(n) ((int3)((n)))
 #define make_int4(x,y,z,w) ((int4)((x),(y),(z),(w)))
+#define make_int4_1(n) ((int4)((n)))
+#define make_int4_31(v,w) ((int4)((v.x),(v.y),(v.z),(w)))
 
 /* math functions */
 #define __uint_as_float(x) as_float(x)
@@ -90,7 +97,7 @@
 #define sinf(x) sin(((float)x))
 #define powf(x, y) pow(((float)x), ((float)y))
 #define fabsf(x) fabs(((float)x))
-#define copysignf(x, y) copysign(((float)x), ((float)y))
+#define copysignf(x, y) copysign((x), (y))
 #define cosf(x) cos(((float)x))
 #define asinf(x) asin(((float)x))
 #define acosf(x) acos(((float)x))
@@ -112,7 +119,9 @@
 
 #define mask_select(mask,truevalues, falsevalues) select((falsevalues), (truevalues), (mask))
 
-#define rcp(e) native_recip((e))
+#define invert_signs(a) ((a) * -1.0f)
+
+#define rcp(e) (1.0f/(e))
 
 /* define NULL */
 #define NULL 0
