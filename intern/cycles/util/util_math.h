@@ -217,7 +217,7 @@ __device_inline int float_to_int(float f)
 #endif
 }
 
-__device_inline int3 float_to_int(float3 f)
+__device_inline int3 float3_to_int3(float3 f)
 {
 #if defined(__KERNEL_SSE2__)
 	return _mm_cvttps_epi32(f);
@@ -226,7 +226,7 @@ __device_inline int3 float_to_int(float3 f)
 #endif
 }
 
-__device_inline int4 float_to_int(float4 f)
+__device_inline int4 float4_to_int4(float4 f)
 {
 #if defined(__KERNEL_SSE2__)
 	return _mm_cvttps_epi32(f);
@@ -237,12 +237,42 @@ __device_inline int4 float_to_int(float4 f)
 
 __device_inline int floor_to_int(float f)
 {
+#if defined(__KERNEL_SSE4__)
+	__m128 t0 = _mm_set_ss(f);
+	t0 = _mm_round_ss(t0, t0, _MM_FROUND_TO_NEG_INF);
+	return _mm_cvtss_si32(t0);
+#else
 	return float_to_int(floorf(f));
+#endif
+}
+
+__device_inline float3 floor_float3(float3 a)
+{
+#if defined(__KERNEL_SSE4__)
+	return _mm_round_ps(a, _MM_FROUND_TO_NEG_INF);
+#else
+	return make_float3(floorf(a.x),floorf(a.y),floorf(a.z));
+#endif
+}
+
+__device_inline int3 floor3_to_int3(float3 a)
+{
+#if defined(__KERNEL_SSE4__)
+	return _mm_cvttps_epi32(_mm_round_ps(a, _MM_FROUND_TO_NEG_INF));
+#else
+	return make_int3(floorf(a.x),floorf(a.y),floorf(a.z));
+#endif
 }
 
 __device_inline int ceil_to_int(float f)
 {
+#if defined(__KERNEL_SSE4__)
+	__m128 t0 = _mm_set_ss(f);
+	t0 = _mm_round_ss(t0, t0, _MM_FROUND_TO_POS_INF);
+	return _mm_cvtss_si32(t0);
+#else
 	return float_to_int(ceilf(f));
+#endif
 }
 
 __device_inline float signf(float f)
@@ -2887,6 +2917,7 @@ __device_inline float4 float3_to_float4(const float3 a)
 }
 
 #ifndef __KERNEL_GPU__
+
 /* reinterpret as float4, value of returned w is not defined */
 __device_inline float4 as_float4(const float3 a)
 {
@@ -2921,17 +2952,33 @@ __device_inline bool is_zero(const float3 a)
 #endif
 }
 
+#ifdef __KERNEL_GPU__
+
+__device_inline float average(float3 a)
+{
+	return (a.x + a.y + a.z) * (1.0f/3.0f);
+}
+
+#else
+
+__device_inline float reduce_add(const float2 a)
+{
+	return a.x + a.y;
+}
+
 __device_inline float reduce_add(const float3 a)
 {
 #if defined __KERNEL_SSE4__
 	return _mm_cvtss_f32(_mm_dp_ps(a, _mm_set1_ps(1.0f), 0x71));
+#elif defined __KERNEL_SSE3__
+	__m128 t0 = _mm_hadd_ps(a, a);
+	__m128 t1 = _mm_shuffle_ps(a, a, _MM_SHUFFLE(2, 2, 2, 2));
+	t0 = _mm_add_ss(t0, t1);
+	return _mm_cvtss_f32(t0);
 #elif defined __KERNEL_SSE__
-    __m128 tx;
-    __m128 ty = _mm_shuffle_ps(a, a, _MM_SHUFFLE(0, 0, 0, 1));
-    __m128 tz = _mm_shuffle_ps(a, a, _MM_SHUFFLE(0, 0, 0, 2));
-	tx = _mm_add_ss(a, ty);
-	tx = _mm_add_ss(tx, tz);
-	return _mm_cvtss_f32(tx);
+	__m128 t0 = _mm_add_ps(a, _mm_shuffle_ps(a, a, _MM_SHUFFLE(0, 0, 0, 1)));
+	__m128 t1 = _mm_add_ss(t0, _mm_shuffle_ps(a, a, _MM_SHUFFLE(0, 0, 0, 2)));
+	return _mm_cvtss_f32(t1);
 #else
 	return (a.x + a.y + a.z);
 #endif
@@ -2941,6 +2988,7 @@ __device_inline float average(const float3 a)
 {
 	return reduce_add(a)*(1.0f/3.0f);
 }
+#endif
 
 #ifndef __KERNEL_GPU__
 
@@ -3295,14 +3343,19 @@ __device_inline bool is_zero(const float4 a)
 
 __device_inline float reduce_add(const float4 a)
 {
-#ifdef __KERNEL_SSE__
-	__m128 t0 = _mm_shuffle_ps(a, a, _MM_SHUFFLE(3, 2, 3, 2));
-	__m128 t1 = _mm_movehl_ps(a, a);
-	t0 = _mm_add_ps(t0, t1);
-	t1 = _mm_shuffle_ps(t1, t1, _MM_SHUFFLE(3, 2, 1, 1));
-	t0 = _mm_add_ps(t0, t1);
-	t0 = _mm_mul_ss(t0, _mm_set_ss(0.25f));
+#if defined(__KERNEL_SSE4__)
+	__m128 t0 = _mm_dp_ps(a, _mm_set1_ps(1.0f), 0xF1);
 	return _mm_cvtss_f32(t0);
+#elif defined(__KERNEL_SSE3__)
+	__m128 t0 = _mm_hadd_ps(a, a);		/* t0 = {w+z,y+x,w+z,y+x} */
+	__m128 t1 = _mm_hadd_ps(t0, t0);	/* t0 = {w+z+y+x} */
+	return _mm_cvtss_f32(t1);
+#elif defined(__KERNEL_SSE__)
+	__m128 t0 = _mm_movehl_ps(a, a);		/* t0 = {w,z,w,z} */
+	t0 = _mm_add_ps(a, t0);				/* t0 = {w+w,z+z,x+w,y+z} */
+	__m128 t1 = _mm_shuffle_ps(t0, t0, _MM_SHUFFLE(3, 2, 1, 1));
+	t1 = _mm_add_ss(t0, t1);
+	return _mm_cvtss_f32(t1);
 #else
 	return ((a.x + a.y) + (a.z + a.w));
 #endif
