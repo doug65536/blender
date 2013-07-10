@@ -156,7 +156,7 @@ __device float3 color_scene_linear_to_srgb(float3 c)
 
 __device float linear_rgb_to_gray(float3 c)
 {
-	return c.x*0.2126f + c.y*0.7152f + c.z*0.0722f;
+	return dot(c, make_float3(0.2126f, 0.7152f, 0.0722f));// c.x*0.2126f + c.y*0.7152f + c.z*0.0722f;
 }
 
 CCL_NAMESPACE_END
