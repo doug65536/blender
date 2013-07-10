@@ -29,18 +29,19 @@
  *
  */
 
+/* note: can't use variadic macros at all in opencl, using old technique */
 //#define ENABLE_TRACE_BVH_INTERSECT
 #ifdef ENABLE_TRACE_BVH_INTERSECT
-#define TRACE_BVH_INTERSECT(...) printf(__VA_ARGS__)
+#define TRACE_BVH_INTERSECT(p) printf p
 #else
-#define TRACE_BVH_INTERSECT(...) ((void)0)
+#define TRACE_BVH_INTERSECT(p) ((void)0)
 #endif
 
-#define ENABLE_TRACE_LOOPS
+//#define ENABLE_TRACE_LOOPS
 #ifdef ENABLE_TRACE_BVH_LOOPS
-#define TRACE_BVH_LOOPS(...)	__VA_ARGS__
+#define TRACE_BVH_LOOPS(p)	p
 #else
-#define TRACE_BVH_LOOPS(...) ((void)0)
+#define TRACE_BVH_LOOPS(p) ((void)0)
 #endif
 
 #define FEATURE(f) (((BVH_FUNCTION_FEATURES) & (f)) != 0)
@@ -290,7 +291,7 @@ __device bool BVH_FUNCTION_NAME
 #endif
 					int primAddr2 = __float_as_int(leaf.y);
 
-					TRACE_BVH_INTERSECT("Leaf with %d primitives\n", primAddr2 - primAddr);
+					TRACE_BVH_INTERSECT(("Leaf with %d primitives\n", primAddr2 - primAddr));
 
 					/* pop */
 					nodeAddr = traversalStack[stackPtr];
@@ -353,7 +354,7 @@ __device bool BVH_FUNCTION_NAME
 							}
 #else
 							if(hit && visibility == PATH_RAY_SHADOW_OPAQUE) {
-								TRACE_BVH_INTERSECT("Returning: hit && visibility == PATH_RAY_SHADOW_OPAQUE\n");
+								TRACE_BVH_INTERSECT(("Returning: hit && visibility == PATH_RAY_SHADOW_OPAQUE\n"));
 								TRACE_BVH_LOOPS(printf("htop, loop counts: %3u { %3u { %3u %3u }}\n", loops[0], loops[1], loops[2], loops[3]));
 								return true;
 							}
@@ -417,7 +418,7 @@ __device bool BVH_FUNCTION_NAME
 #endif
 		} while(nodeAddr != ENTRYPOINT_SENTINEL);
 
-		TRACE_BVH_INTERSECT("Done internal nodes loop\n");
+		TRACE_BVH_INTERSECT(("Done internal nodes loop\n"));
 
 #if FEATURE(BVH_INSTANCING)
 		if(stackPtr >= 0) {
@@ -456,10 +457,10 @@ __device bool BVH_FUNCTION_NAME
 	TRACE_BVH_LOOPS(printf("done, loop counts: %3u { %3u { %3u %3u }}\n", loops[0], loops[1], loops[2], loops[3]));
 
 #if FEATURE(BVH_SUBSURFACE)
-	TRACE_BVH_INTERSECT("Done (subsurface), hits = %d\n", num_hits);
+	TRACE_BVH_INTERSECT(("Done (subsurface), hits = %d\n", num_hits));
 	return (num_hits != 0);
 #else
-	TRACE_BVH_INTERSECT("Done (non-subsurface), returns %s\n", (isect->prim != ~0) ? "true" : "false");
+	TRACE_BVH_INTERSECT(("Done (non-subsurface), returns %s\n", (isect->prim != ~0) ? "true" : "false"));
 	return (isect->prim != ~0);
 #endif
 }
