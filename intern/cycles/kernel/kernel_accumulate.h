@@ -334,15 +334,17 @@ __device_inline void path_radiance_clamp(PathRadiance *L, float3 *L_sum, float c
 
 #ifdef __PASSES__
 		if(L->use_light_pass) {
-			L->direct_diffuse = make_float3(0.0f, 0.0f, 0.0f);
-			L->direct_glossy = make_float3(0.0f, 0.0f, 0.0f);
-			L->direct_transmission = make_float3(0.0f, 0.0f, 0.0f);
+			float3 zero = make_float3_1(0.0f);
 
-			L->indirect_diffuse = make_float3(0.0f, 0.0f, 0.0f);
-			L->indirect_glossy = make_float3(0.0f, 0.0f, 0.0f);
-			L->indirect_transmission = make_float3(0.0f, 0.0f, 0.0f);
+			L->direct_diffuse = zero;
+			L->direct_glossy = zero;
+			L->direct_transmission = zero;
 
-			L->emission = make_float3(0.0f, 0.0f, 0.0f);
+			L->indirect_diffuse = zero;
+			L->indirect_glossy = zero;
+			L->indirect_transmission = zero;
+
+			L->emission = zero;
 		}
 #endif
 	}
