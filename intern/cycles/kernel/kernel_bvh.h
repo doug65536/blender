@@ -972,8 +972,10 @@ __device_inline float3 bvh_triangle_refine(KernelGlobals *kg, ShaderData *sd, co
 	P = P + D*t;
 
 	float4 v00 = kernel_tex_fetch(__tri_woop, isect->prim*TRI_NODE_SIZE+0);
-	float Oz = v00.w - P.x*v00.x - P.y*v00.y - P.z*v00.z;
-	float invDz = 1.0f/(D.x*v00.x + D.y*v00.y + D.z*v00.z);
+	//float Oz = v00.w - P.x*v00.x - P.y*v00.y - P.z*v00.z;
+	float Oz = v00.w + dot(invert_signs(P), float4_to_float3(v00));
+	//float invDz = 1.0f/(D.x*v00.x + D.y*v00.y + D.z*v00.z);
+	float invDz = rcp(dot(D, float4_to_float3(v00)));
 	float rt = Oz * invDz;
 
 	P = P + D*rt;
