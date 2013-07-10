@@ -1133,6 +1133,14 @@ __device_inline const __m128i shuffle(const __m128i& b)
 
 /* uchar extract */
 
+#ifdef __KERNEL_CUDA__
+template<int src>
+__forceinline uchar extract(const uchar2& b);
+
+template<> __forceinline uchar extract<0>(const uchar2& b) { return b.x; }
+template<> __forceinline uchar extract<1>(const uchar2& b) { return b.y; }
+
+#else
 template<int src>
 __forceinline uchar extract(const uchar2& b)
 {
@@ -1153,6 +1161,7 @@ __forceinline uchar extract(const uchar4& b)
 	assert(src >= 0 && src < 4);
 	return b[src];
 }
+#endif
 
 /* uint extract */
 
