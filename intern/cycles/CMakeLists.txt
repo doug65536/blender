@@ -37,6 +37,10 @@ elseif(CMAKE_COMPILER_IS_GNUCC)
 	set(CYCLES_SSE4_KERNEL_FLAGS "${CYCLES_CXX_FLAGS} -msse -msse2 -msse3 -mssse3 -msse4 -mfpmath=sse")
 	set(CYCLES_AVX1_KERNEL_FLAGS "${CYCLES_CXX_FLAGS} -msse -msse2 -msse3 -mssse3 -msse4 -mavx -mfpmath=sse")
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ffast-math")
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+	set(CYCLES_SSE2_KERNEL_FLAGS "-ffast-math -msse -msse2")
+	set(CYCLES_SSE3_KERNEL_FLAGS "-ffast-math -msse -msse2 -msse3 -mssse3")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ffast-math")
 endif()
 
 # for OSL
