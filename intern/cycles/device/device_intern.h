@@ -28,6 +28,7 @@ Device *device_opencl_create(DeviceInfo& info, Stats &stats, bool background);
 Device *device_cuda_create(DeviceInfo& info, Stats &stats, bool background);
 Device *device_network_create(DeviceInfo& info, Stats &stats, const char *address);
 Device *device_multi_create(DeviceInfo& info, Stats &stats, bool background);
+Device *device_multi_create_from(std::vector<Device*> &devices);
 
 void device_cpu_info(vector<DeviceInfo>& devices);
 void device_opencl_info(vector<DeviceInfo>& devices);

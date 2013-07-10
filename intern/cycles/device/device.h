@@ -56,6 +56,7 @@ public:
 	bool display_device;
 	bool advanced_shading;
 	bool pack_images;
+	bool use_fission;
 	vector<DeviceInfo> multi_devices;
 
 	DeviceInfo()
@@ -66,6 +67,7 @@ public:
 		display_device = false;
 		advanced_shading = true;
 		pack_images = false;
+		use_fission = false;
 	}
 };
 

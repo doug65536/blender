@@ -416,6 +416,7 @@ static bool device_multi_add(vector<DeviceInfo>& devices, DeviceType type, bool 
 	return true;
 }
 
+
 void device_multi_info(vector<DeviceInfo>& devices)
 {
 	int num = 0;

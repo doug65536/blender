@@ -90,6 +90,7 @@ PFNCLWAITFOREVENTS                  __clewWaitForEvents                 = NULL;
 PFNCLGETEVENTINFO                   __clewGetEventInfo                  = NULL;
 PFNCLRETAINEVENT                    __clewRetainEvent                   = NULL;
 PFNCLRELEASEEVENT                   __clewReleaseEvent                  = NULL;
+PFNCLSETEVENTCALLBACK               __clewSetEventCallback              = NULL;
 PFNCLGETEVENTPROFILINGINFO          __clewGetEventProfilingInfo         = NULL;
 PFNCLFLUSH                          __clewFlush                         = NULL;
 PFNCLFINISH                         __clewFinish                        = NULL;
@@ -222,6 +223,7 @@ int clLibraryInit()
 	__clewGetEventInfo                  = (PFNCLGETEVENTINFO                )CLCC_DYNLIB_IMPORT(module, "clGetEventInfo");
 	__clewRetainEvent                   = (PFNCLRETAINEVENT                 )CLCC_DYNLIB_IMPORT(module, "clRetainEvent");
 	__clewReleaseEvent                  = (PFNCLRELEASEEVENT                )CLCC_DYNLIB_IMPORT(module, "clReleaseEvent");
+	__clewSetEventCallback				= (PFNCLSETEVENTCALLBACK            )CLCC_DYNLIB_IMPORT(module, "clSetEventCallback");
 	__clewGetEventProfilingInfo         = (PFNCLGETEVENTPROFILINGINFO       )CLCC_DYNLIB_IMPORT(module, "clGetEventProfilingInfo");
 	__clewFlush                         = (PFNCLFLUSH                       )CLCC_DYNLIB_IMPORT(module, "clFlush");
 	__clewFinish                        = (PFNCLFINISH                      )CLCC_DYNLIB_IMPORT(module, "clFinish");

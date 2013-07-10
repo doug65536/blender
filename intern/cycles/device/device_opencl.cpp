@@ -21,6 +21,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <signal.h>
+
+#include <set>
 
 #include "device.h"
 #include "device_intern.h"
@@ -85,29 +88,90 @@ static string opencl_kernel_build_options(const string& platform, const string *
 	string build_options = " -cl-fast-relaxed-math ";
 
 	if(platform == "NVIDIA CUDA")
-		build_options += "-D__KERNEL_OPENCL_NVIDIA__ -cl-nv-maxrregcount=32 -cl-nv-verbose ";
+		build_options += "-D __KERNEL_OPENCL_NVIDIA__ -cl-nv-maxrregcount=32 -cl-nv-verbose ";
 
 	else if(platform == "Apple")
-		build_options += "-D__KERNEL_OPENCL_APPLE__ -Wno-missing-prototypes ";
+		build_options += "-D __KERNEL_OPENCL_APPLE__ -Wno-missing-prototypes ";
 
 	else if(platform == "AMD Accelerated Parallel Processing")
-		build_options += "-D__KERNEL_OPENCL_AMD__ ";
+		build_options += "-D __KERNEL_OPENCL_AMD__ ";
 
 	else if(platform == "Intel(R) OpenCL") {
-		build_options += "-D__KERNEL_OPENCL_INTEL_CPU__";
+		build_options += "-D __KERNEL_OPENCL_INTEL_CPU__";
 
 		/* options for gdb source level kernel debugging. this segfaults on linux currently */
 		if(opencl_kernel_use_debug() && debug_src)
-			build_options += "-g -s \"" + *debug_src + "\"";
+			build_options += "-g -s \"" + *debug_src + "\" ";
 	}
 
 	if(opencl_kernel_use_debug())
-		build_options += "-D__KERNEL_OPENCL_DEBUG__ ";
+		build_options += "-D __KERNEL_OPENCL_DEBUG__ ";
 
 	if(opencl_kernel_use_advanced_shading(platform))
-		build_options += "-D__KERNEL_OPENCL_NEED_ADVANCED_SHADING__ ";
-	
+		build_options += "-D __KERNEL_OPENCL_NEED_ADVANCED_SHADING__ ";
+
 	return build_options;
+}
+
+static std::set<string> get_device_extensions(cl_device_id device, cl_int *ret_err)
+{
+	cl_int ciErr;
+	std::set<string> extensions;
+
+	/* always initialize error output value */
+	if (ret_err)
+		*ret_err = CL_SUCCESS;
+
+	size_t extension_string_len = 0;
+	ciErr = clGetDeviceInfo(device, CL_DEVICE_EXTENSIONS, 0, NULL, &extension_string_len);
+	if (ciErr != CL_SUCCESS) {
+		if (ret_err)
+			*ret_err = ciErr;
+		/* return empty set */
+		return extensions;
+	}
+
+	if (!extension_string_len)
+		return extensions;
+
+	vector<char> extension_str;
+	extension_str.resize(extension_string_len);
+
+	ciErr = clGetDeviceInfo(device, CL_DEVICE_EXTENSIONS,
+			extension_string_len, &extension_str[0], NULL);
+	if (ciErr != CL_SUCCESS) {
+		if (ret_err)
+			*ret_err = ciErr;
+		/* return empty set */
+		return extensions;
+	}
+
+	vector<char>::iterator st, en, i;
+	st = extension_str.begin();
+	en = extension_str.end();
+	i = st;
+	while (st != en) {
+		/* try to insert string and/or skip whitespace if
+		 * we have something and, we're at the end
+		 * or we've hit a space */
+		if (i != st && (i == en || isspace(*i))) {
+			/* insert a string if we have characters
+			 * and it's not a null terminator */
+			if (st != i && *st)
+				extensions.insert(std::set<string>::value_type(string(st, i)));
+
+			/* eat extra spaces or null terminators between strings */
+			while (i != en && (!*i || isspace(*++i)));
+
+			/* found beginning of another string (or end) */
+			st = i;
+		}
+		else {
+			++i;
+		}
+	}
+
+	return extensions;
 }
 
 /* thread safe cache for contexts and programs */
@@ -313,6 +377,76 @@ public:
 	}
 };
 
+/* http://www.khronos.org/registry/cl/extensions/ext/cl_ext_device_fission.txt */
+class DeviceFissionExt
+{
+public:
+	typedef cl_bitfield cl_device_partition_property_ext;
+
+	typedef cl_int (*clCreateSubDevicesEXT_function)(
+			cl_device_id in_device,
+			const cl_device_partition_property_ext * properties,
+			cl_uint num_entries,
+			cl_device_id *out_devices,
+			cl_uint *num_devices);
+
+	typedef cl_int (*clReleaseDeviceEXT_function)(cl_device_id device);
+
+	typedef cl_int (*clRetainDeviceEXT_function)(cl_device_id device);
+
+	clCreateSubDevicesEXT_function clCreateSubDevicesEXT;
+	clReleaseDeviceEXT_function clReleaseDeviceEXT;
+	clRetainDeviceEXT_function clRetainDeviceEXT;
+
+	enum {
+		CL_DEVICE_PARTITION_EQUALLY_EXT            = 0x4050,
+		CL_DEVICE_PARTITION_BY_COUNTS_EXT          = 0x4051,
+		CL_DEVICE_PARTITION_BY_NAMES_EXT           = 0x4052,
+		CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN_EXT = 0x4053,
+
+		CL_AFFINITY_DOMAIN_L1_CACHE_EXT         = 0x1,
+		CL_AFFINITY_DOMAIN_L2_CACHE_EXT         = 0x2,
+		CL_AFFINITY_DOMAIN_L3_CACHE_EXT         = 0x3,
+		CL_AFFINITY_DOMAIN_L4_CACHE_EXT         = 0x4,
+		CL_AFFINITY_DOMAIN_NUMA_EXT             = 0x10,
+		CL_AFFINITY_DOMAIN_NEXT_FISSIONABLE_EXT = 0x100,
+
+		CL_DEVICE_PARENT_DEVICE_EXT             = 0x4054,
+		CL_DEVICE_PARITION_TYPES_EXT            = 0x4055,
+		CL_DEVICE_AFFINITY_DOMAINS_EXT          = 0x4056,
+		CL_DEVICE_REFERENCE_COUNT_EXT		    = 0x4057,
+		CL_DEVICE_PARTITION_STYLE_EXT		    = 0x4058,
+
+		CL_PROPERTIES_LIST_END_EXT              = 0x0,
+		CL_PARTITION_BY_COUNTS_LIST_END_EXT     = 0x0,
+		CL_PARTITION_BY_NAMES_LIST_END_EXT      = -1,
+		CL_DEVICE_PARTITION_FAILED_EXT          = -1057,
+		CL_INVALID_PARTITION_COUNT_EXT          = -1058,
+		CL_INVALID_PARTITION_NAME_EXT           = -1059
+	};
+
+	DeviceFissionExt()
+		: clCreateSubDevicesEXT(NULL)
+		, clReleaseDeviceEXT(NULL)
+		, clRetainDeviceEXT(NULL)
+	{
+	}
+
+	bool initialize()
+	{
+		if (!clCreateSubDevicesEXT) {
+			clCreateSubDevicesEXT = (clCreateSubDevicesEXT_function)
+					clGetExtensionFunctionAddress("clCreateSubDevicesEXT");
+			clReleaseDeviceEXT = (clReleaseDeviceEXT_function)
+					clGetExtensionFunctionAddress("clReleaseDeviceEXT");
+			clRetainDeviceEXT = (clRetainDeviceEXT_function)
+					clGetExtensionFunctionAddress("clRetainDeviceEXT");
+		}
+
+		return clCreateSubDevicesEXT != NULL;
+	}
+};
+
 class OpenCLDevice : public Device
 {
 public:
@@ -327,6 +461,9 @@ public:
 	cl_kernel ckShaderKernel;
 	cl_int ciErr;
 
+	/* set to true if device can directly use CPU memory */
+	cl_bool use_unified_memory;
+
 	typedef map<string, device_vector<uchar>*> ConstMemMap;
 	typedef map<string, device_ptr> MemMap;
 
@@ -334,8 +471,15 @@ public:
 	MemMap mem_map;
 	device_ptr null_mem;
 
+	/* device lock only needed and used when device fission is being used */
+	thread_mutex device_lock;
+
 	bool device_initialized;
 	string platform_name;
+
+	std::set<string> extensions;
+
+	DeviceFissionExt fission_ext;
 
 	const char *opencl_error_string(cl_int err)
 	{
@@ -397,6 +541,7 @@ public:
 			if(error_msg == "")
 				error_msg = message;
 			fprintf(stderr, "%s\n", message.c_str());
+			fflush(stderr);
 			return true;
 		}
 
@@ -405,9 +550,10 @@ public:
 
 	void opencl_error(const string& message)
 	{
-		if(error_msg == "")
+		if(error_msg.empty())
 			error_msg = message;
 		fprintf(stderr, "%s\n", message.c_str());
+		fflush(stderr);
 	}
 
 	void opencl_assert(cl_int err)
@@ -417,10 +563,58 @@ public:
 			if(error_msg == "")
 				error_msg = message;
 			fprintf(stderr, "%s\n", message.c_str());
+			fflush(stderr);
 #ifndef NDEBUG
-			abort();
+			raise(SIGTRAP);
 #endif
 		}
+	}
+
+	static Device *create_fission_device(DeviceInfo& info, Stats& stats, bool background)
+	{
+		/* create a device from which to spawn fission devices */
+		OpenCLDevice *temp_device;
+		temp_device = new OpenCLDevice(info, stats, background);
+
+		std::vector<cl_device_id> fission_devices;
+		temp_device->get_fission_devices(fission_devices);
+
+		/* explicitly create device objects */
+		std::vector<Device*> subdevices;
+
+		delete temp_device;
+
+		//return device_multi_create_from(fission_devices);
+	}
+
+	/* use fission api to break this device into as many devices as possible */
+	cl_int get_fission_devices(std::vector<cl_device_id>& devices_out)
+	{
+		if (!fission_ext.initialize())
+			return CL_SUCCESS;
+
+		DeviceFissionExt::cl_device_partition_property_ext props[] = {
+			DeviceFissionExt::CL_DEVICE_PARTITION_EQUALLY_EXT, 1,
+			DeviceFissionExt::CL_PROPERTIES_LIST_END_EXT
+		};
+
+		cl_uint subdevice_count;
+
+		/* get subdevice count */
+		ciErr = fission_ext.clCreateSubDevicesEXT(cdDevice,
+			props, 0, NULL, &subdevice_count);
+		if (opencl_error(ciErr))
+			return ciErr;
+
+		devices_out.resize(subdevice_count);
+
+		/* create subdevices */
+		ciErr = fission_ext.clCreateSubDevicesEXT(cdDevice,
+			props, 0, &devices_out[0], &subdevice_count);
+		if (opencl_error(ciErr))
+			return ciErr;
+
+		return CL_SUCCESS;
 	}
 
 	OpenCLDevice(DeviceInfo& info, Stats &stats, bool background_)
@@ -524,6 +718,8 @@ public:
 			}
 		}
 
+		extensions = get_device_extensions(cdDevice, &ciErr);
+
 		cqCommandQueue = clCreateCommandQueue(cxContext, cdDevice, 0, &ciErr);
 		if(opencl_error(ciErr))
 			return;
@@ -531,6 +727,10 @@ public:
 		null_mem = (device_ptr)clCreateBuffer(cxContext, CL_MEM_READ_ONLY, 1, NULL, &ciErr);
 		if(opencl_error(ciErr))
 			return;
+
+		/* detect unified memory support */
+		opencl_assert(clGetDeviceInfo(cdDevice, CL_DEVICE_HOST_UNIFIED_MEMORY,
+				sizeof(cl_bool),  &use_unified_memory, NULL));
 
 		device_initialized = true;
 	}
@@ -542,7 +742,9 @@ public:
 		clGetDeviceInfo((cl_device_id)user_data, CL_DEVICE_NAME, sizeof(name), &name, NULL);
 
 		fprintf(stderr, "OpenCL error (%s): %s\n", name, err_info);
+		fflush(stderr);
 	}
+
 
 	bool opencl_version_check()
 	{
@@ -645,6 +847,7 @@ public:
 			build_log[ret_val_size] = '\0';
 			fprintf(stderr, "OpenCL kernel build output:\n");
 			fprintf(stderr, "%s\n", &build_log[0]);
+			fflush(stderr);
 		}
 
 		if(ciErr != CL_SUCCESS) {
@@ -711,6 +914,7 @@ public:
 		/* verify if device was initialized */
 		if(!device_initialized) {
 			fprintf(stderr, "OpenCL: failed to initialize device.\n");
+			fflush(stderr);
 			return false;
 		}
 
@@ -814,6 +1018,11 @@ public:
 		else
 			mem_flag = CL_MEM_READ_WRITE;
 
+		if (use_unified_memory) {
+			mem_flag |= CL_MEM_USE_HOST_PTR;
+			mem_ptr = (void*)mem.data_pointer;
+		}
+
 		mem.device_pointer = (device_ptr)clCreateBuffer(cxContext, mem_flag, size, mem_ptr, &ciErr);
 
 		opencl_assert(ciErr);
@@ -823,10 +1032,27 @@ public:
 
 	void mem_copy_to(device_memory& mem)
 	{
-		/* this is blocking */
 		size_t size = mem.memory_size();
-		ciErr = clEnqueueWriteBuffer(cqCommandQueue, CL_MEM_PTR(mem.device_pointer), CL_TRUE, 0, size, (void*)mem.data_pointer, 0, NULL, NULL);
-		opencl_assert(ciErr);
+
+		/* this is blocking */
+		if (!use_unified_memory) {
+			ciErr = clEnqueueWriteBuffer(cqCommandQueue, CL_MEM_PTR(mem.device_pointer), CL_TRUE,
+					0, size, (void*)mem.data_pointer, 0, NULL, NULL);
+			opencl_assert(ciErr);
+		}
+		else {
+			/* dummy map to enforce coherence */
+			void *map_ptr = clEnqueueMapBuffer(cqCommandQueue,
+				CL_MEM_PTR(mem.device_pointer), CL_TRUE, CL_MAP_WRITE, 0,
+				size, 0, NULL, NULL, &ciErr);
+
+			/* do actual copy if map pointer is not equal to data pointer */
+			if (map_ptr != (void*)mem.data_pointer)
+				memcpy(map_ptr, (void*)mem.data_pointer, size);
+
+			clEnqueueUnmapMemObject(cqCommandQueue,
+					CL_MEM_PTR(mem.device_pointer), map_ptr, 0, NULL, NULL);
+		}
 	}
 
 	void mem_copy_from(device_memory& mem, int y, int w, int h, int elem)
@@ -834,15 +1060,49 @@ public:
 		size_t offset = elem*y*w;
 		size_t size = elem*w*h;
 
-		ciErr = clEnqueueReadBuffer(cqCommandQueue, CL_MEM_PTR(mem.device_pointer), CL_TRUE, offset, size, (uchar*)mem.data_pointer + offset, 0, NULL, NULL);
-		opencl_assert(ciErr);
+		/* this is blocking */
+		if (!use_unified_memory) {
+			ciErr = clEnqueueReadBuffer(cqCommandQueue, CL_MEM_PTR(mem.device_pointer), CL_TRUE, offset, size, (uchar*)mem.data_pointer + offset, 0, NULL, NULL);
+			opencl_assert(ciErr);
+		}
+		else {
+			/* dummy map to enforce coherence */
+			void *map_ptr = clEnqueueMapBuffer(cqCommandQueue,
+				CL_MEM_PTR(mem.device_pointer), CL_TRUE, CL_MAP_READ, 0,
+				size, 0, NULL, NULL, &ciErr);
+
+			/* do actual copy if map pointer is not equal to data pointer */
+			if (map_ptr != (void*)mem.data_pointer)
+				memcpy((void*)mem.data_pointer, map_ptr, size);
+
+			clEnqueueUnmapMemObject(cqCommandQueue,
+					CL_MEM_PTR(mem.device_pointer), map_ptr, 0, NULL, NULL);
+		}
 	}
 
 	void mem_zero(device_memory& mem)
 	{
 		if(mem.device_pointer) {
-			memset((void*)mem.data_pointer, 0, mem.memory_size());
-			mem_copy_to(mem);
+			size_t size = mem.memory_size();
+
+			if (!use_unified_memory) {
+				memset((void*)mem.data_pointer, 0, size);
+				mem_copy_to(mem);
+			}
+			else {
+				void *map_ptr = clEnqueueMapBuffer(cqCommandQueue,
+					CL_MEM_PTR(mem.device_pointer), CL_TRUE, CL_MAP_WRITE, 0,
+					size, 0, NULL, NULL, &ciErr);
+
+				memset(map_ptr, 0, size);
+
+				/* if map isn't our buffer, clear our buffer too */
+				if (map_ptr != (void*)mem.data_pointer)
+					memset((void*)mem.data_pointer, 0, size);
+
+				clEnqueueUnmapMemObject(cqCommandQueue,
+						CL_MEM_PTR(mem.device_pointer), map_ptr, 0, NULL, NULL);
+			}
 		}
 	}
 
@@ -896,15 +1156,16 @@ public:
 		return global_size + ((r == 0)? 0: group_size - r);
 	}
 
-	void enqueue_kernel(cl_kernel kernel, size_t w, size_t h)
+	void enqueue_kernel(cl_command_queue queue, cl_kernel kernel, size_t w, size_t h, cl_event *evt)
 	{
 		size_t workgroup_size, max_work_items[3];
 
 		clGetKernelWorkGroupInfo(kernel, cdDevice,
 			CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), &workgroup_size, NULL);
 		clGetDeviceInfo(cdDevice,
-			CL_DEVICE_MAX_WORK_ITEM_SIZES, sizeof(size_t)*3, max_work_items, NULL);
+			CL_DEVICE_MAX_WORK_ITEM_SIZES, sizeof(max_work_items), max_work_items, NULL);
 	
+#if 0
 		/* try to divide evenly over 2 dimensions */
 		size_t sqrt_workgroup_size = max(sqrt((double)workgroup_size), 1.0);
 		size_t local_size[2] = {sqrt_workgroup_size, sqrt_workgroup_size};
@@ -916,14 +1177,23 @@ public:
 		}
 
 		size_t global_size[2] = {global_size_round_up(local_size[0], w), global_size_round_up(local_size[1], h)};
+#else
+		/* let the device do as it pleases with local size */
+		size_t global_size[2] = { w, h };
+		size_t *local_size = NULL;
+#endif
+
+		/* if the passed event isn't null, release it */
+		if (evt && *evt != NULL)
+			clReleaseEvent(*evt);
 
 		/* run kernel */
-		ciErr = clEnqueueNDRangeKernel(cqCommandQueue, kernel, 2, NULL, global_size, local_size, 0, NULL, NULL);
+		ciErr = clEnqueueNDRangeKernel(queue, kernel, 2, NULL, global_size, local_size, 0, NULL, evt);
 		opencl_assert(ciErr);
-		opencl_assert(clFlush(cqCommandQueue));
+		//opencl_assert(clFlush(cqCommandQueue));
 	}
 
-	void path_trace(RenderTile& rtile, int sample)
+	void path_trace(cl_command_queue queue, cl_kernel kernel, const RenderTile& rtile, int sample, cl_event *evt)
 	{
 		/* cast arguments to cl types */
 		cl_mem d_data = CL_MEM_PTR(const_mem_map["__data"]->device_pointer);
@@ -941,25 +1211,25 @@ public:
 		cl_uint narg = 0;
 		ciErr = 0;
 
-		ciErr |= clSetKernelArg(ckPathTraceKernel, narg++, sizeof(d_data), (void*)&d_data);
-		ciErr |= clSetKernelArg(ckPathTraceKernel, narg++, sizeof(d_buffer), (void*)&d_buffer);
-		ciErr |= clSetKernelArg(ckPathTraceKernel, narg++, sizeof(d_rng_state), (void*)&d_rng_state);
+		ciErr |= clSetKernelArg(kernel, narg++, sizeof(d_data), (void*)&d_data);
+		ciErr |= clSetKernelArg(kernel, narg++, sizeof(d_buffer), (void*)&d_buffer);
+		ciErr |= clSetKernelArg(kernel, narg++, sizeof(d_rng_state), (void*)&d_rng_state);
 
 #define KERNEL_TEX(type, ttype, name) \
 	ciErr |= set_kernel_arg_mem(ckPathTraceKernel, &narg, #name);
 #include "kernel_textures.h"
 
-		ciErr |= clSetKernelArg(ckPathTraceKernel, narg++, sizeof(d_sample), (void*)&d_sample);
-		ciErr |= clSetKernelArg(ckPathTraceKernel, narg++, sizeof(d_x), (void*)&d_x);
-		ciErr |= clSetKernelArg(ckPathTraceKernel, narg++, sizeof(d_y), (void*)&d_y);
-		ciErr |= clSetKernelArg(ckPathTraceKernel, narg++, sizeof(d_w), (void*)&d_w);
-		ciErr |= clSetKernelArg(ckPathTraceKernel, narg++, sizeof(d_h), (void*)&d_h);
-		ciErr |= clSetKernelArg(ckPathTraceKernel, narg++, sizeof(d_offset), (void*)&d_offset);
-		ciErr |= clSetKernelArg(ckPathTraceKernel, narg++, sizeof(d_stride), (void*)&d_stride);
+		ciErr |= clSetKernelArg(kernel, narg++, sizeof(d_sample), (void*)&d_sample);
+		ciErr |= clSetKernelArg(kernel, narg++, sizeof(d_x), (void*)&d_x);
+		ciErr |= clSetKernelArg(kernel, narg++, sizeof(d_y), (void*)&d_y);
+		ciErr |= clSetKernelArg(kernel, narg++, sizeof(d_w), (void*)&d_w);
+		ciErr |= clSetKernelArg(kernel, narg++, sizeof(d_h), (void*)&d_h);
+		ciErr |= clSetKernelArg(kernel, narg++, sizeof(d_offset), (void*)&d_offset);
+		ciErr |= clSetKernelArg(kernel, narg++, sizeof(d_stride), (void*)&d_stride);
 
 		opencl_assert(ciErr);
 
-		enqueue_kernel(ckPathTraceKernel, d_w, d_h);
+		enqueue_kernel(queue, kernel, d_w, d_h, evt);
 	}
 
 	cl_int set_kernel_arg_mem(cl_kernel kernel, cl_uint *narg, const char *name)
@@ -982,7 +1252,8 @@ public:
 		return err;
 	}
 
-	void tonemap(DeviceTask& task, device_ptr buffer, device_ptr rgba)
+	void tonemap(cl_command_queue queue, cl_kernel kernel,
+		DeviceTask& task, device_ptr buffer, device_ptr rgba)
 	{
 		/* cast arguments to cl types */
 		cl_mem d_data = CL_MEM_PTR(const_mem_map["__data"]->device_pointer);
@@ -1000,28 +1271,28 @@ public:
 		cl_uint narg = 0;
 		ciErr = 0;
 
-		ciErr |= clSetKernelArg(ckFilmConvertKernel, narg++, sizeof(d_data), (void*)&d_data);
-		ciErr |= clSetKernelArg(ckFilmConvertKernel, narg++, sizeof(d_rgba), (void*)&d_rgba);
-		ciErr |= clSetKernelArg(ckFilmConvertKernel, narg++, sizeof(d_buffer), (void*)&d_buffer);
+		ciErr |= clSetKernelArg(kernel, narg++, sizeof(d_data), (void*)&d_data);
+		ciErr |= clSetKernelArg(kernel, narg++, sizeof(d_rgba), (void*)&d_rgba);
+		ciErr |= clSetKernelArg(kernel, narg++, sizeof(d_buffer), (void*)&d_buffer);
 
 #define KERNEL_TEX(type, ttype, name) \
-	ciErr |= set_kernel_arg_mem(ckFilmConvertKernel, &narg, #name);
+	ciErr |= set_kernel_arg_mem(kernel, &narg, #name);
 #include "kernel_textures.h"
 
-		ciErr |= clSetKernelArg(ckFilmConvertKernel, narg++, sizeof(d_sample), (void*)&d_sample);
-		ciErr |= clSetKernelArg(ckFilmConvertKernel, narg++, sizeof(d_x), (void*)&d_x);
-		ciErr |= clSetKernelArg(ckFilmConvertKernel, narg++, sizeof(d_y), (void*)&d_y);
-		ciErr |= clSetKernelArg(ckFilmConvertKernel, narg++, sizeof(d_w), (void*)&d_w);
-		ciErr |= clSetKernelArg(ckFilmConvertKernel, narg++, sizeof(d_h), (void*)&d_h);
-		ciErr |= clSetKernelArg(ckFilmConvertKernel, narg++, sizeof(d_offset), (void*)&d_offset);
-		ciErr |= clSetKernelArg(ckFilmConvertKernel, narg++, sizeof(d_stride), (void*)&d_stride);
+		ciErr |= clSetKernelArg(kernel, narg++, sizeof(d_sample), (void*)&d_sample);
+		ciErr |= clSetKernelArg(kernel, narg++, sizeof(d_x), (void*)&d_x);
+		ciErr |= clSetKernelArg(kernel, narg++, sizeof(d_y), (void*)&d_y);
+		ciErr |= clSetKernelArg(kernel, narg++, sizeof(d_w), (void*)&d_w);
+		ciErr |= clSetKernelArg(kernel, narg++, sizeof(d_h), (void*)&d_h);
+		ciErr |= clSetKernelArg(kernel, narg++, sizeof(d_offset), (void*)&d_offset);
+		ciErr |= clSetKernelArg(kernel, narg++, sizeof(d_stride), (void*)&d_stride);
 
 		opencl_assert(ciErr);
 
-		enqueue_kernel(ckFilmConvertKernel, d_w, d_h);
+		enqueue_kernel(queue, kernel, d_w, d_h, NULL);
 	}
 
-	void shader(DeviceTask& task)
+	void shader(cl_command_queue queue, cl_kernel kernel, DeviceTask& task)
 	{
 		/* cast arguments to cl types */
 		cl_mem d_data = CL_MEM_PTR(const_mem_map["__data"]->device_pointer);
@@ -1035,36 +1306,40 @@ public:
 		cl_uint narg = 0;
 		ciErr = 0;
 
-		ciErr |= clSetKernelArg(ckShaderKernel, narg++, sizeof(d_data), (void*)&d_data);
-		ciErr |= clSetKernelArg(ckShaderKernel, narg++, sizeof(d_input), (void*)&d_input);
-		ciErr |= clSetKernelArg(ckShaderKernel, narg++, sizeof(d_output), (void*)&d_output);
+		ciErr |= clSetKernelArg(kernel, narg++, sizeof(d_data), (void*)&d_data);
+		ciErr |= clSetKernelArg(kernel, narg++, sizeof(d_input), (void*)&d_input);
+		ciErr |= clSetKernelArg(kernel, narg++, sizeof(d_output), (void*)&d_output);
 
 #define KERNEL_TEX(type, ttype, name) \
 	ciErr |= set_kernel_arg_mem(ckShaderKernel, &narg, #name);
 #include "kernel_textures.h"
 
-		ciErr |= clSetKernelArg(ckShaderKernel, narg++, sizeof(d_shader_eval_type), (void*)&d_shader_eval_type);
-		ciErr |= clSetKernelArg(ckShaderKernel, narg++, sizeof(d_shader_x), (void*)&d_shader_x);
-		ciErr |= clSetKernelArg(ckShaderKernel, narg++, sizeof(d_shader_w), (void*)&d_shader_w);
+		ciErr |= clSetKernelArg(kernel, narg++, sizeof(d_shader_eval_type), (void*)&d_shader_eval_type);
+		ciErr |= clSetKernelArg(kernel, narg++, sizeof(d_shader_x), (void*)&d_shader_x);
+		ciErr |= clSetKernelArg(kernel, narg++, sizeof(d_shader_w), (void*)&d_shader_w);
 
 		opencl_assert(ciErr);
 
-		enqueue_kernel(ckShaderKernel, task.shader_w, 1);
+		enqueue_kernel(queue, kernel, task.shader_w, 1, NULL);
 	}
 
+	/* if we're not running on a subdevice, subdevice is NULL */
 	void thread_run(DeviceTask *task)
 	{
 		if(task->type == DeviceTask::TONEMAP) {
-			tonemap(*task, task->buffer, task->rgba);
+			tonemap(cqCommandQueue, ckFilmConvertKernel, *task, task->buffer, task->rgba);
 		}
 		else if(task->type == DeviceTask::SHADER) {
-			shader(*task);
+			shader(cqCommandQueue, ckShaderKernel, *task);
 		}
 		else if(task->type == DeviceTask::PATH_TRACE) {
 			RenderTile tile;
-			
+
 			/* keep rendering tiles until done */
-			while(task->acquire_tile(this, tile)) {
+			for(;;) {
+				if (!task->acquire_tile(this, tile))
+					break;
+
 				int start_sample = tile.start_sample;
 				int end_sample = tile.start_sample + tile.num_samples;
 
@@ -1074,15 +1349,222 @@ public:
 							break;
 					}
 
-					path_trace(tile, sample);
+					path_trace(cqCommandQueue, ckPathTraceKernel, tile, sample, NULL);
 
 					tile.sample = sample + 1;
 
-					//task->update_progress(tile);
+					task->update_progress(tile);
 				}
 
 				task->release_tile(tile);
 			}
+		}
+	}
+
+	/* simple unbounded producer/consumer queue */
+	template<typename T>
+	class ProducerConsumerQueue
+	{
+		std::queue<T> q;
+		thread_mutex q_lock;
+		thread_condition_variable q_not_empty;
+
+	public:
+		ProducerConsumerQueue() {}
+		~ProducerConsumerQueue()
+		{
+			thread_scoped_lock lock(q_lock);
+		}
+
+		/* push one item into the queue */
+		void enqueue(const T &item)
+		{
+			thread_scoped_lock lock(q_lock);
+			bool was_empty = q.empty();
+			q.push(item);
+			if (was_empty)
+				q_not_empty.notify_all();
+		}
+
+		/* get one item from the queue */
+		T dequeue_one()
+		{
+			T result;
+
+			thread_scoped_lock lock(q_lock);
+
+			for (;;)
+			{
+				if (!q.empty()) {
+					result = q.front();
+					q.pop();
+					return result;
+				}
+
+				q_not_empty.wait(lock);
+			}
+		}
+
+		/* get all items from the queue */
+		std::vector<T> dequeue_all()
+		{
+			std::vector<T> result;
+			thread_scoped_lock lock(q_lock);
+			if (!q.empty()) {
+				result.reserve(q.size());
+				while (!q.empty()) {
+					result.push_back(q.front());
+					q.pop();
+				}
+			}
+		}
+	};
+
+	/* state machine to pump work into subdevice */
+	class SubdevicePathTracer
+	{
+		RenderTile tile;
+		cl_int ciErr;
+		int start_sample, end_sample, sample;
+
+		OpenCLDevice *parent;
+		DeviceTask *task;
+
+		cl_device_id work_device;
+		cl_command_queue queue;
+		cl_kernel kernel;
+
+		cl_event trace_done_event;
+
+		enum State {
+			NEED_TILE,
+			PATH_TRACING,
+			DONE,
+			FAILED
+		};
+
+		State state;
+
+	public:
+		SubdevicePathTracer()
+			: ciErr(CL_SUCCESS)
+			, start_sample(0), end_sample(0), sample(0)
+			, work_device(NULL), queue(NULL)
+			, kernel(NULL), trace_done_event(NULL)
+			, state(NEED_TILE)
+		{
+		}
+
+		~SubdevicePathTracer()
+		{
+			if (queue)
+				clReleaseCommandQueue(queue);
+			if (kernel)
+				clReleaseKernel(kernel);
+			if (work_device)
+				parent->fission_ext.clReleaseDeviceEXT(work_device);
+		}
+
+		bool initialize(OpenCLDevice* parent_device, DeviceTask* device_task, cl_device_id sub_device)
+		{
+			parent = parent_device;
+			task = device_task;
+			work_device = sub_device;
+
+			/* create our own command queue */
+			queue = clCreateCommandQueue(parent->cxContext, sub_device, 0, &ciErr);
+			if (ciErr != CL_SUCCESS) {
+				state = FAILED;
+				return false;
+			}
+
+			/* create our own kernel so argument setting won't conflict */
+			kernel = clCreateKernel(parent->cpProgram, "kernel_ocl_path_trace", &ciErr);
+			if (ciErr != CL_SUCCESS) {
+				state = FAILED;
+				return false;
+			}
+
+			return true;
+		}
+
+		/* called by opencl when a kernel invocation is complete */
+		static void TraceDoneCallback_C(cl_event event, cl_int status, void *user_data)
+		{
+			reinterpret_cast<SubdevicePathTracer*>(user_data)->TraceDoneCallback(event, status);
+		}
+
+		void TraceDoneCallback(cl_event event, cl_int status)
+		{
+
+		}
+
+		/* returns true when there is still work to do */
+		bool do_work()
+		{
+			switch (state) {
+			case NEED_TILE:
+				/* acquire a tile and get range of samples */
+				if (task->acquire_tile(parent, tile)) {
+					start_sample = tile.start_sample;
+					end_sample = start_sample + tile.num_samples;
+					sample = start_sample;
+
+					state = PATH_TRACING;
+				}
+				else {
+					state = DONE;
+				}
+				break;
+
+			case PATH_TRACING:
+				/* enqueue a path_trace */
+				parent->path_trace(queue, kernel, tile, sample, &trace_done_event);
+
+				ciErr = clSetEventCallback(trace_done_event, CL_COMPLETE, TraceDoneCallback_C, this);
+				if (ciErr != CL_SUCCESS) {
+					state = FAILED;
+					break;
+				}
+
+				ciErr = clFlush(queue);
+				if (ciErr != CL_SUCCESS) {
+					state = FAILED;
+					break;
+				}
+
+				if (++sample == end_sample)
+					state = NEED_TILE;
+				break;
+
+			case DONE:	/* fall thru */
+			case FAILED:
+				return false;
+
+			}
+
+			return true;
+		}
+	};
+
+	void thread_run_subdevices(DeviceTask* task, std::vector<cl_device_id> subdevices)
+	{
+		assert(task->type == DeviceTask::PATH_TRACE);
+
+		std::vector<SubdevicePathTracer> tracers;
+		tracers.resize(subdevices.size());
+
+		for (size_t i = 0; i < subdevices.size(); ++i)
+			tracers[i].initialize(this, task, subdevices[i]);
+
+		for (;;) {
+			int done_count = 0;
+			for (size_t i = 0; i < tracers.size(); ++i)
+				if (tracers[i].do_work())
+					++done_count;
+
+			if (done_count == tracers.size())
+				break;
 		}
 	}
 
@@ -1093,10 +1575,72 @@ public:
 		{
 			run = function_bind(&OpenCLDevice::thread_run, device, this);
 		}
+
+		OpenCLDeviceTask(OpenCLDevice *device, DeviceTask& task, std::vector<cl_device_id> &sub_devices)
+		: DeviceTask(task)
+		{
+			run = function_bind(&OpenCLDevice::thread_run_subdevices, device, this, sub_devices);
+		}
 	};
 
 	void task_add(DeviceTask& task)
 	{
+		/* see if the device supports device fission. If so, split it up
+		 * into multiple devices */
+
+		/* not really a loop */
+		do {
+			/* disabled for now */
+			break;
+
+			/* only try to use device fission for path_trace task */
+			if (task.type != DeviceTask::PATH_TRACE)
+				break;
+
+			/* if device doesn't implement device fission, break */
+			if (extensions.find("cl_ext_device_fission") == extensions.end())
+				break;
+
+			/* if device fission extension doesn't successfully initialize, break */
+			if (!fission_ext.initialize())
+				break;
+
+			/* ask for the device to be split up as finely as possible */
+			DeviceFissionExt::cl_device_partition_property_ext props[] = {
+				DeviceFissionExt::CL_DEVICE_PARTITION_EQUALLY_EXT, 1,
+				DeviceFissionExt::CL_PROPERTIES_LIST_END_EXT
+			};
+
+			cl_uint subdevice_count = 0;
+
+			/* create the subdevices */
+			ciErr = fission_ext.clCreateSubDevicesEXT(cdDevice,
+				props, 0, NULL, &subdevice_count);
+
+			/* if it failed or didn't create any subdevices, break */
+			if (ciErr != CL_SUCCESS || subdevice_count < 1)
+				break;
+
+			std::vector<cl_device_id> subdevices;
+			subdevices.resize(subdevice_count);
+
+			/* create the subdevices */
+			ciErr = fission_ext.clCreateSubDevicesEXT(cdDevice,
+				props, subdevice_count, &subdevices[0], NULL);
+			if (ciErr != CL_SUCCESS)
+				break;
+
+			printf("OpenCL: using device fission, %u devices\n", subdevice_count);
+
+			task_pool.push(new OpenCLDeviceTask(this, task, subdevices));
+
+			return;
+		} while (false);
+
+		/* discard errors that happened above */
+		ciErr = CL_SUCCESS;
+
+		/* no device fission available, just run task as usual */
 		task_pool.push(new OpenCLDeviceTask(this, task));
 	}
 
@@ -1113,6 +1657,11 @@ public:
 
 Device *device_opencl_create(DeviceInfo& info, Stats &stats, bool background)
 {
+	if (info.use_fission) {
+		/* build a multi device */
+		return OpenCLDevice::create_fission_device(info, stats, background);
+	}
+
 	return new OpenCLDevice(info, stats, background);
 }
 
@@ -1134,6 +1683,8 @@ void device_opencl_info(vector<DeviceInfo>& devices)
 
 	/* devices are numbered consecutively across platforms */
 	int num_base = 0;
+
+	DeviceFissionExt fission_ext;
 
 	for (int platform = 0; platform < num_platforms; platform++, num_base += num_devices) {
 		num_devices = 0;
@@ -1169,6 +1720,34 @@ void device_opencl_info(vector<DeviceInfo>& devices)
 			info.pack_images = true;
 
 			devices.push_back(info);
+
+			/* See if the device supports fission */
+			std::set<string> extensions;
+			extensions = get_device_extensions(device_id, NULL);
+
+			if (extensions.find("cl_ext_device_fission") != extensions.end()
+					&& fission_ext.initialize()) {
+				cl_uint subdevice_count;
+
+				DeviceFissionExt::cl_device_partition_property_ext props[] = {
+					DeviceFissionExt::CL_DEVICE_PARTITION_EQUALLY_EXT, 1,
+					DeviceFissionExt::CL_PROPERTIES_LIST_END_EXT
+				};
+
+				fission_ext.clCreateSubDevicesEXT(device_id,
+						props, 0, NULL, &subdevice_count);
+
+				if (subdevice_count > 1) {
+					std::stringstream ss;
+					ss << name << " (x" << subdevice_count << ")";
+
+					/* create a duplicate num, but set device fission flag */
+					info.id += "_fission";
+					info.description = ss.str();
+					info.use_fission = true;
+					devices.push_back(info);
+				}
+			}
 		}
 	}
 }
