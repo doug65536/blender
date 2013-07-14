@@ -38,7 +38,7 @@ typedef boost::function<void(void)> TaskRunFunction;
 class Task
 {
 public:
-	Task() {};
+	Task() {}
 	Task(const TaskRunFunction& run_) : run(run_) {}
 
 	virtual ~Task() {}

@@ -28,7 +28,7 @@
 
 /* Qualifiers for kernel code shared by CPU and GPU */
 
-#ifndef __KERNEL_GPU__
+#ifndef __KERNEL_COMPUTE_DEVICE__
 
 #define __device static inline
 #define __device_noinline static
@@ -60,7 +60,7 @@
 
 /* SIMD Types */
 
-#ifndef __KERNEL_GPU__
+#ifndef __KERNEL_COMPUTE_DEVICE__
 
 #ifndef __KERNEL_SSE_DISABLED__
 
@@ -144,7 +144,7 @@ typedef unsigned int uint;
 
 #endif
 
-#ifndef __KERNEL_GPU__
+#ifndef __KERNEL_COMPUTE_DEVICE__
 
 /* Fixed Bits Types */
 
@@ -557,7 +557,7 @@ struct __align(16) float4 {
 
 #endif
 
-#ifndef __KERNEL_GPU__
+#ifndef __KERNEL_COMPUTE_DEVICE__
 
 /* Vector Type Constructors
  * 
@@ -1549,7 +1549,7 @@ __forceinline float4 insert(const float4 a, float b)
 }
 #endif
 
-#ifndef __KERNEL_GPU__
+#ifndef __KERNEL_COMPUTE_DEVICE__
 
 void *malloc_aligned(size_t size, size_t alignment);
 
