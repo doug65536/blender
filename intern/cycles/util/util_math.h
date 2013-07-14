@@ -78,9 +78,9 @@ CCL_NAMESPACE_BEGIN
 
 #ifdef _WIN32
 
-#ifndef __KERNEL_GPU__
+#ifndef __KERNEL_COMPUTE_DEVICE__
 
-#if(!defined(FREE_WINDOWS))
+#ifndef FREE_WINDOWS
 #define copysignf(x, y) ((float)_copysign(x, y))
 #define hypotf(x, y) _hypotf(x, y)
 #define isnan(x) _isnan(x)
@@ -105,7 +105,7 @@ __device_inline float fminf(float a, float b)
 
 #endif
 
-#ifndef __KERNEL_GPU__
+#ifndef __KERNEL_COMPUTE_DEVICE__
 
 #ifdef __KERNEL_SSE__
 /* Newton-Raphson step */
@@ -2916,7 +2916,7 @@ __device_inline float4 float3_to_float4(const float3 a)
 #endif
 }
 
-#ifndef __KERNEL_GPU__
+#ifndef __KERNEL_COMPUTE_DEVICE__
 
 /* reinterpret as float4, value of returned w is not defined */
 __device_inline float4 as_float4(const float3 a)
@@ -2929,7 +2929,7 @@ __device_inline float4 as_float4(const float3 a)
 }
 #endif
 
-#ifndef __KERNEL_GPU__
+#ifndef __KERNEL_COMPUTE_DEVICE__
 
 __device_inline void print_float3(const char *label, const float3 a)
 {
@@ -2952,7 +2952,7 @@ __device_inline bool is_zero(const float3 a)
 #endif
 }
 
-#ifdef __KERNEL_GPU__
+#ifdef __KERNEL_COMPUTE_DEVICE__
 
 __device_inline float average(float3 a)
 {
@@ -2990,7 +2990,7 @@ __device_inline float average(const float3 a)
 }
 #endif
 
-#ifndef __KERNEL_GPU__
+#ifndef __KERNEL_COMPUTE_DEVICE__
 
 __device_inline void print_float2(const char *label, const float2 a)
 {
@@ -3378,7 +3378,7 @@ __device_inline float4 normalize(const float4 a)
 
 #endif
 
-#ifndef __KERNEL_GPU__
+#ifndef __KERNEL_COMPUTE_DEVICE__
 
 __device_inline float4 reduce_min(const float4 a)
 {
@@ -3419,7 +3419,7 @@ __device_inline void print_float4(const char *label, const float4 a)
 
 #endif
 
-#ifndef __KERNEL_GPU__
+#ifndef __KERNEL_COMPUTE_DEVICE__
 
 __device_inline void print_int3(const char *label, const int3 a)
 {
@@ -3428,7 +3428,7 @@ __device_inline void print_int3(const char *label, const int3 a)
 
 #endif
 
-#ifndef __KERNEL_GPU__
+#ifndef __KERNEL_COMPUTE_DEVICE__
 
 __device_inline void print_int4(const char *label, const int4 a)
 {

@@ -19,7 +19,7 @@
 #ifndef __KERNEL_COMPAT_OPENCL_H__
 #define __KERNEL_COMPAT_OPENCL_H__
 
-#define __KERNEL_GPU__
+#define __KERNEL_COMPUTE_DEVICE__
 #define __KERNEL_OPENCL__
 
 /* no namespaces in opencl */

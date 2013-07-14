@@ -379,7 +379,7 @@
     </valuelist>
     <value type="int" key="CMakeProjectManager.BaseEnvironmentBase">2</value>
     <value type="QString" key="CMakeProjectManager.CMakeRunConfiguation.Title">blender</value>
-    <value type="QString" key="CMakeProjectManager.CMakeRunConfiguration.Arguments">-b /home/doug/code/blender/testfiles/cycles/bmw.blend --threads 1 --render-frame 1</value>
+    <value type="QString" key="CMakeProjectManager.CMakeRunConfiguration.Arguments">-b /home/doug/code/blender/testfiles/cycles/default_cube.blend --threads 1 --render-frame 1</value>
     <value type="bool" key="CMakeProjectManager.CMakeRunConfiguration.UseTerminal">false</value>
     <valuelist type="QVariantList" key="CMakeProjectManager.CMakeRunConfiguration.UserEnvironmentChanges">
      <value type="QString">DISPLAY=none</value>

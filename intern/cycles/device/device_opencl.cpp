@@ -43,7 +43,7 @@ CCL_NAMESPACE_BEGIN
 
 #define CL_MEM_PTR(p) ((cl_mem)(uintptr_t)(p))
 
-static cl_device_type opencl_device_type()
+static cl_device_type opencl_enabled_device_types()
 {
 	char *device = getenv("CYCLES_OPENCL_TEST");
 
@@ -63,13 +63,23 @@ static cl_device_type opencl_device_type()
 	return CL_DEVICE_TYPE_ALL;
 }
 
+static cl_int opencl_get_device_type(cl_device_id device_id, cl_device_type *result)
+{
+	return clGetDeviceInfo(device_id, CL_DEVICE_TYPE,
+		sizeof(*result), result, NULL);
+}
+
 static bool opencl_kernel_use_debug()
 {
 	return (getenv("CYCLES_OPENCL_DEBUG") != NULL);
 }
 
-static bool opencl_kernel_use_advanced_shading(const string& platform)
+static bool opencl_kernel_use_advanced_shading(const string& platform, cl_device_type device_type)
 {
+	/* CPU OpenCL implementations always uses advanced shading */
+	if (device_type == CL_DEVICE_TYPE_CPU)
+		return true;
+
 	/* keep this in sync with kernel_types.h! */
 	if(platform == "NVIDIA CUDA")
 		return true;
@@ -83,7 +93,8 @@ static bool opencl_kernel_use_advanced_shading(const string& platform)
 	return false;
 }
 
-static string opencl_kernel_build_options(const string& platform, const string *debug_src = NULL)
+static string opencl_kernel_build_options(const string& platform,
+	cl_device_type device_type, const string *debug_src = NULL)
 {
 	string build_options = " -cl-fast-relaxed-math ";
 
@@ -101,13 +112,32 @@ static string opencl_kernel_build_options(const string& platform, const string *
 
 		/* options for gdb source level kernel debugging. this segfaults on linux currently */
 		if(opencl_kernel_use_debug() && debug_src)
-			build_options += "-g -s \"" + *debug_src + "\" ";
+			build_options += "-g -s \"" + *debug_src + "\"";
+	}
+
+	/* pass information about the type of device as kernel defines
+	 * one purpose of this is to avoid using a stripped down kernel
+	 * for cpu devices,	regardless of device vendor */
+	switch (device_type)
+	{
+	case CL_DEVICE_TYPE_CPU:
+		build_options += "-D __KERNEL_OPENCL_DEVICE_CPU__ ";
+		break;
+	case CL_DEVICE_TYPE_GPU:
+		build_options += "-D __KERNEL_OPENCL_DEVICE_GPU__ ";
+		break;
+	case CL_DEVICE_TYPE_ACCELERATOR:
+		build_options += "-D __KERNEL_OPENCL_DEVICE_ACCEL__ ";
+		break;
+	default:
+		build_options += "-D __KERNEL_OPENCL_DEVICE_UNKNOWN__ ";
+		break;
 	}
 
 	if(opencl_kernel_use_debug())
 		build_options += "-D __KERNEL_OPENCL_DEBUG__ ";
 
-	if(opencl_kernel_use_advanced_shading(platform))
+	if(opencl_kernel_use_advanced_shading(platform, device_type))
 		build_options += "-D __KERNEL_OPENCL_NEED_ADVANCED_SHADING__ ";
 
 	return build_options;
@@ -471,9 +501,6 @@ public:
 	MemMap mem_map;
 	device_ptr null_mem;
 
-	/* device lock only needed and used when device fission is being used */
-	thread_mutex device_lock;
-
 	bool device_initialized;
 	string platform_name;
 
@@ -556,18 +583,24 @@ public:
 		fflush(stderr);
 	}
 
-	void opencl_assert(cl_int err)
+	/* returns true if err is not an error */
+	bool opencl_assert(cl_int err)
 	{
-		if(err != CL_SUCCESS) {
-			string message = string_printf("OpenCL error (%d): %s", err, opencl_error_string(err));
-			if(error_msg == "")
-				error_msg = message;
-			fprintf(stderr, "%s\n", message.c_str());
-			fflush(stderr);
+		if(err == CL_SUCCESS)
+			return true;
+
+		string message = string_printf("OpenCL error (%d): %s", err, opencl_error_string(err));
+		if(error_msg.empty())
+			error_msg = message;
+		fprintf(stderr, "%s\n", message.c_str());
+		fflush(stderr);
+
 #ifndef NDEBUG
-			raise(SIGTRAP);
+		/* break into debugger */
+		raise(SIGTRAP);
 #endif
-		}
+
+		return false;
 	}
 
 	static Device *create_fission_device(DeviceInfo& info, Stats& stats, bool background)
@@ -656,7 +689,7 @@ public:
 		for (int platform = 0; platform < num_platforms; platform++) {
 			cl_uint num_devices;
 
-			if(opencl_error(clGetDeviceIDs(platforms[platform], opencl_device_type(), 0, NULL, &num_devices)))
+			if(opencl_error(clGetDeviceIDs(platforms[platform], opencl_enabled_device_types(), 0, NULL, &num_devices)))
 				return;
 
 			total_devices += num_devices;
@@ -673,7 +706,7 @@ public:
 			/* get devices */
 			vector<cl_device_id> device_ids(num_devices, NULL);
 
-			if(opencl_error(clGetDeviceIDs(cpPlatform, opencl_device_type(), num_devices, &device_ids[0], NULL)))
+			if(opencl_error(clGetDeviceIDs(cpPlatform, opencl_enabled_device_types(), num_devices, &device_ids[0], NULL)))
 				return;
 
 			cdDevice = device_ids[info.num - num_base];
@@ -744,7 +777,6 @@ public:
 		fprintf(stderr, "OpenCL error (%s): %s\n", name, err_info);
 		fflush(stderr);
 	}
-
 
 	bool opencl_version_check()
 	{
@@ -831,7 +863,11 @@ public:
 
 	bool build_kernel(const string& kernel_path, const string *debug_src = NULL)
 	{
-		string build_options = opencl_kernel_build_options(platform_name, debug_src);
+		/* opencl_kernel_build_options() needs to know device type */
+		cl_device_type device_type;
+		opencl_assert(opencl_get_device_type(cdDevice, &device_type));
+
+		string build_options = opencl_kernel_build_options(platform_name, device_type, debug_src);
 	
 		ciErr = clBuildProgram(cpProgram, 0, NULL, build_options.c_str(), NULL, NULL);
 
@@ -892,18 +928,22 @@ public:
 	{
 		MD5Hash md5;
 		char version[256], driver[256], name[256], vendor[256];
+		
+		cl_device_type device_type;
+		opencl_assert(opencl_get_device_type(cdDevice, &device_type));
 
-		clGetPlatformInfo(cpPlatform, CL_PLATFORM_VENDOR, sizeof(vendor), &vendor, NULL);
-		clGetDeviceInfo(cdDevice, CL_DEVICE_VERSION, sizeof(version), &version, NULL);
-		clGetDeviceInfo(cdDevice, CL_DEVICE_NAME, sizeof(name), &name, NULL);
-		clGetDeviceInfo(cdDevice, CL_DRIVER_VERSION, sizeof(driver), &driver, NULL);
+		opencl_assert(clGetPlatformInfo(cpPlatform, CL_PLATFORM_VENDOR, sizeof(vendor), &vendor, NULL));
+		opencl_assert(clGetDeviceInfo(cdDevice, CL_DEVICE_VERSION, sizeof(version), &version, NULL));
+		opencl_assert(clGetDeviceInfo(cdDevice, CL_DEVICE_NAME, sizeof(name), &name, NULL));
+		opencl_assert(clGetDeviceInfo(cdDevice, CL_DRIVER_VERSION, sizeof(driver), &driver, NULL));
+		opencl_assert(clGetDeviceInfo(cdDevice, CL_DRIVER_VERSION, sizeof(driver), &driver, NULL));
 
 		md5.append((uint8_t*)vendor, strlen(vendor));
 		md5.append((uint8_t*)version, strlen(version));
 		md5.append((uint8_t*)name, strlen(name));
 		md5.append((uint8_t*)driver, strlen(driver));
 
-		string options = opencl_kernel_build_options(platform_name);
+		string options = opencl_kernel_build_options(platform_name, device_type);
 		md5.append((uint8_t*)options.c_str(), options.size());
 
 		return md5.get_hex();
@@ -1190,7 +1230,7 @@ public:
 		/* run kernel */
 		ciErr = clEnqueueNDRangeKernel(queue, kernel, 2, NULL, global_size, local_size, 0, NULL, evt);
 		opencl_assert(ciErr);
-		//opencl_assert(clFlush(cqCommandQueue));
+		opencl_assert(clFlush(cqCommandQueue));
 	}
 
 	void path_trace(cl_command_queue queue, cl_kernel kernel, const RenderTile& rtile, int sample, cl_event *evt)
@@ -1688,12 +1728,12 @@ void device_opencl_info(vector<DeviceInfo>& devices)
 
 	for (int platform = 0; platform < num_platforms; platform++, num_base += num_devices) {
 		num_devices = 0;
-		if(clGetDeviceIDs(platform_ids[platform], opencl_device_type(), 0, NULL, &num_devices) != CL_SUCCESS || num_devices == 0)
+		if(clGetDeviceIDs(platform_ids[platform], opencl_enabled_device_types(), 0, NULL, &num_devices) != CL_SUCCESS || num_devices == 0)
 			continue;
 
 		device_ids.resize(num_devices);
 
-		if(clGetDeviceIDs(platform_ids[platform], opencl_device_type(), num_devices, &device_ids[0], NULL) != CL_SUCCESS)
+		if(clGetDeviceIDs(platform_ids[platform], opencl_enabled_device_types(), num_devices, &device_ids[0], NULL) != CL_SUCCESS)
 			continue;
 
 		char pname[256];
@@ -1708,6 +1748,10 @@ void device_opencl_info(vector<DeviceInfo>& devices)
 			if(clGetDeviceInfo(device_id, CL_DEVICE_NAME, sizeof(name), &name, NULL) != CL_SUCCESS)
 				continue;
 
+			/* need to know device type to set advanced_shading appropriately */
+			cl_device_type device_type;
+			opencl_get_device_type(device_id, &device_type);
+
 			DeviceInfo info;
 
 			info.type = DEVICE_OPENCL;
@@ -1716,7 +1760,7 @@ void device_opencl_info(vector<DeviceInfo>& devices)
 			info.id = string_printf("OPENCL_%d", info.num);
 			/* we don't know if it's used for display, but assume it is */
 			info.display_device = true;
-			info.advanced_shading = opencl_kernel_use_advanced_shading(platform_name);
+			info.advanced_shading = opencl_kernel_use_advanced_shading(platform_name, device_type);
 			info.pack_images = true;
 
 			devices.push_back(info);

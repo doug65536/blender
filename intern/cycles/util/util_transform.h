@@ -19,7 +19,7 @@
 #ifndef __UTIL_TRANSFORM_H__
 #define __UTIL_TRANSFORM_H__
 
-#ifndef __KERNEL_GPU__
+#ifndef __KERNEL_COMPUTE_DEVICE__
 #include <string.h>
 #endif
 
@@ -33,7 +33,7 @@ CCL_NAMESPACE_BEGIN
 typedef struct Transform {
 	float4 x, y, z, w; /* rows */
 
-#ifndef __KERNEL_GPU__
+#ifndef __KERNEL_COMPUTE_DEVICE__
 	float4 operator[](int i) const { return *(&x + i); }
 	float4& operator[](int i) { return *(&x + i); }
 #endif
@@ -128,7 +128,7 @@ __device_inline Transform make_transform(float a, float b, float c, float d,
 	return t;
 }
 
-#ifndef __KERNEL_GPU__
+#ifndef __KERNEL_COMPUTE_DEVICE__
 
 __device_inline Transform operator*(const Transform a, const Transform b)
 {
@@ -451,7 +451,7 @@ __device void transform_motion_interpolate(Transform *tfm, const DecompMotionTra
 	transform_compose(tfm, &decomp);
 }
 
-#ifndef __KERNEL_GPU__
+#ifndef __KERNEL_COMPUTE_DEVICE__
 
 __device_inline bool operator==(const MotionTransform& A, const MotionTransform& B)
 {

@@ -22,7 +22,7 @@
 #include "kernel_math.h"
 #include "svm/svm_types.h"
 
-#ifndef __KERNEL_GPU__
+#ifndef __KERNEL_COMPUTE_DEVICE__
 #define __KERNEL_CPU__
 #endif
 
@@ -65,8 +65,6 @@ CCL_NAMESPACE_BEGIN
 #endif
 #endif
 
-#ifdef __KERNEL_OPENCL__
-
 /* keep __KERNEL_ADV_SHADING__ in sync with opencl_kernel_use_advanced_shading! */
 
 #ifdef __KERNEL_OPENCL_NVIDIA__
@@ -99,11 +97,14 @@ CCL_NAMESPACE_BEGIN
 //#define __PASSES__
 #endif
 
-#ifdef __KERNEL_OPENCL_INTEL_CPU__
+#ifdef __KERNEL_OPENCL_INTEL__
 #define __KERNEL_SHADING__
 #define __KERNEL_ADV_SHADING__
 #endif
 
+/* always enable advanced shading on opencl cpu devices */
+#if defined(__KERNEL_OPENCL_DEVICE_CPU__) && !defined(__KERNEL_ADV_SHADING__)
+#define __KERNEL_ADV_SHADING__
 #endif
 
 /* kernel features */

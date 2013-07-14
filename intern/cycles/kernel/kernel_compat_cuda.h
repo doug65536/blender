@@ -19,7 +19,7 @@
 #ifndef __KERNEL_COMPAT_CUDA_H__
 #define __KERNEL_COMPAT_CUDA_H__
 
-#define __KERNEL_GPU__
+#define __KERNEL_COMPUTE_DEVICE__
 #define __KERNEL_CUDA__
 #define CCL_NAMESPACE_BEGIN
 #define CCL_NAMESPACE_END
