@@ -63,12 +63,15 @@ CCL_NAMESPACE_BEGIN
 #if defined(_WIN32)
 #define CL_API_ENTRY
 #define CL_API_CALL __stdcall
+#define CL_CALLBACK __stdcall
 #else
 #define CL_API_ENTRY
 #define CL_API_CALL
+#define CL_CALLBACK
 #endif
 
 #define CL_API_SUFFIX__VERSION_1_0
+#define CL_API_SUFFIX__VERSION_1_1
 
 #if defined(_WIN32) && defined(_MSC_VER)
 
@@ -945,6 +948,12 @@ PFNCLRETAINEVENT)(cl_event /* event */) CL_API_SUFFIX__VERSION_1_0;
 typedef CL_API_ENTRY cl_int (CL_API_CALL *
 PFNCLRELEASEEVENT)(cl_event /* event */) CL_API_SUFFIX__VERSION_1_0;
 
+typedef CL_API_ENTRY cl_int (CL_API_CALL *
+PFNCLSETEVENTCALLBACK)(cl_event event,
+		cl_int  command_exec_callback_type,
+		void (CL_CALLBACK *pfn_event_notify)(cl_event event, cl_int event_command_exec_status, void *user_data),
+		void *user_data) CL_API_SUFFIX__VERSION_1_1;
+
 // Profiling APIs
 typedef CL_API_ENTRY cl_int (CL_API_CALL *
 PFNCLGETEVENTPROFILINGINFO)(cl_event            /* event */,
@@ -1206,6 +1215,7 @@ CLEW_FUN_EXPORT     PFNCLWAITFOREVENTS                  __clewWaitForEvents     
 CLEW_FUN_EXPORT     PFNCLGETEVENTINFO                   __clewGetEventInfo                  ;
 CLEW_FUN_EXPORT     PFNCLRETAINEVENT                    __clewRetainEvent                   ;
 CLEW_FUN_EXPORT     PFNCLRELEASEEVENT                   __clewReleaseEvent                  ;
+CLEW_FUN_EXPORT     PFNCLSETEVENTCALLBACK               __clewSetEventCallback              ;
 CLEW_FUN_EXPORT     PFNCLGETEVENTPROFILINGINFO          __clewGetEventProfilingInfo         ;
 CLEW_FUN_EXPORT     PFNCLFLUSH                          __clewFlush                         ;
 CLEW_FUN_EXPORT     PFNCLFINISH                         __clewFinish                        ;
@@ -1274,6 +1284,7 @@ CLEW_FUN_EXPORT     PFNCLGETEXTENSIONFUNCTIONADDRESS    __clewGetExtensionFuncti
 #define	clGetEventInfo                  CLEW_GET_FUN(__clewGetEventInfo                  )
 #define	clRetainEvent                   CLEW_GET_FUN(__clewRetainEvent                   )
 #define	clReleaseEvent                  CLEW_GET_FUN(__clewReleaseEvent                  )
+#define	clSetEventCallback              CLEW_GET_FUN(__clewSetEventCallback              )
 #define	clGetEventProfilingInfo         CLEW_GET_FUN(__clewGetEventProfilingInfo         )
 #define	clFlush                         CLEW_GET_FUN(__clewFlush                         )
 #define	clFinish                        CLEW_GET_FUN(__clewFinish                        )
