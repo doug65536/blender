@@ -326,6 +326,17 @@ using namespace ccl;
 
 int main(int argc, const char **argv)
 {
+#ifndef NDEBUG
+	/* force stdout to line buffered when debugging so if the dev is
+	 * using an IDE that pipes stdout, it will not be fully buffered.
+	 * Note that this *must* be done before stdout is used, so do it
+	 * as soon as possible. */
+	setvbuf(stdout, NULL, _IOLBF, 4096);
+	setvbuf(stderr, NULL, _IOLBF, 4096);
+	cout.sync_with_stdio();
+	cerr.sync_with_stdio();
+#endif
+
 	path_init();
 
 	options_parse(argc, argv);

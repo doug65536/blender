@@ -24,7 +24,23 @@
 
 CCL_NAMESPACE_BEGIN
 
-#ifdef WITH_NETWORK
+#if 1 || defined(WITH_NETWORK)
+
+typedef map<device_ptr, device_ptr> PtrMap;
+typedef vector<uint8_t> DataVector;
+typedef map<device_ptr, DataVector> DataMap;
+
+/* tiles are mirrored on the server side, in a list */
+typedef list<RenderTile> TileList;
+
+/* search a list of tiles and find the one that matches the passed render tile */
+static TileList::iterator tile_list_find(TileList& tile_list, RenderTile& tile)
+{
+	for(list<RenderTile>::iterator it = tile_list.begin(); it != tile_list.end(); ++it)
+		if(tile.x == it->x && tile.y == it->y && tile.start_sample == it->start_sample)
+			return it;
+	return tile_list.end();
+}
 
 class NetworkDevice : public Device
 {
@@ -34,8 +50,9 @@ public:
 	device_ptr mem_counter;
 	DeviceTask the_task; /* todo: handle multiple tasks */
 
-	NetworkDevice(Stats &stats, const char *address)
-	: Device(stats), socket(io_service)
+	NetworkDevice(DeviceInfo& info, Stats &stats, const char *address)
+		: Device(info, stats, true)
+		, socket(io_service)
 	{
 		stringstream portstr;
 		portstr << SERVER_PORT;
@@ -86,6 +103,9 @@ public:
 
 	void mem_copy_from(device_memory& mem, int y, int w, int h, int elem)
 	{
+		size_t data_size = mem.memory_size();
+		cout << "Requesting mem_copy_from size=" << data_size << std::endl;
+
 		RPCSend snd(socket, "mem_copy_from");
 
 		snd.add(mem);
@@ -96,7 +116,7 @@ public:
 		snd.write();
 
 		RPCReceive rcv(socket);
-		rcv.read_buffer((void*)mem.data_pointer, mem.memory_size());
+		rcv.read_buffer((void*)mem.data_pointer, data_size);
 	}
 
 	void mem_zero(device_memory& mem)
@@ -159,6 +179,19 @@ public:
 		}
 	}
 
+	bool load_kernels(bool experimental)
+	{
+		RPCSend snd(socket, "load_kernels");
+		snd.add(experimental);
+		snd.write();
+
+		bool result;
+		RPCReceive rcv(socket);
+		rcv.read(result);
+
+		return result;
+	}
+
 	void task_add(DeviceTask& task)
 	{
 		the_task = task;
@@ -173,7 +206,7 @@ public:
 		RPCSend snd(socket, "task_wait");
 		snd.write();
 
-		list<RenderTile> the_tiles;
+		TileList the_tiles;
 
 		/* todo: run this threaded for connecting to multiple clients */
 		for(;;) {
@@ -197,12 +230,10 @@ public:
 			else if(rcv.name == "release_tile") {
 				rcv.read(tile);
 
-				for(list<RenderTile>::iterator it = the_tiles.begin(); it != the_tiles.end(); it++) {
-					if(tile.x == it->x && tile.y == it->y && tile.start_sample == it->start_sample) {
-						tile.buffers = it->buffers;
-						the_tiles.erase(it);
-						break;
-					}
+				TileList::iterator it = tile_list_find(the_tiles, tile);
+				if (it != the_tiles.end()) {
+					tile.buffers = it->buffers;
+					the_tiles.erase(it);
 				}
 
 				assert(tile.buffers != NULL);
@@ -226,7 +257,7 @@ public:
 
 Device *device_network_create(DeviceInfo& info, Stats &stats, const char *address)
 {
-	return new NetworkDevice(stats, address);
+	return new NetworkDevice(info, stats, address);
 }
 
 void device_network_info(vector<DeviceInfo>& devices)
@@ -245,8 +276,10 @@ void device_network_info(vector<DeviceInfo>& devices)
 
 class DeviceServer {
 public:
+	thread_mutex serializer_lock;
+
 	DeviceServer(Device *device_, tcp::socket& socket_)
-	: device(device_), socket(socket_)
+		: device(device_), socket(socket_)
 	{
 	}
 
@@ -264,46 +297,126 @@ public:
 	}
 
 protected:
+	/* create a memory buffer for a device buffer and insert it into mem_data */
+	DataVector &data_vector_insert(device_ptr client_pointer, size_t data_size)
+	{
+		/* create a new DataVector and insert it into mem_data */
+		pair<DataMap::iterator,bool> data_ins = mem_data.insert(
+				DataMap::value_type(client_pointer, DataVector()));
+
+		/* make sure it was a unique insertion */
+		assert(data_ins.second);
+
+		/* get a reference to the inserted vector */
+		DataVector &data_v = data_ins.first->second;
+
+		/* size the vector */
+		data_v.resize(data_size);
+
+		return data_v;
+	}
+
+	DataVector &data_vector_find(device_ptr client_pointer)
+	{
+		DataMap::iterator i = mem_data.find(client_pointer);
+		assert(i != mem_data.end());
+		return i->second;
+	}
+
+	/* setup mapping and reverse mapping of client_pointer<->real_pointer */
+	void pointer_mapping_insert(device_ptr client_pointer, device_ptr real_pointer)
+	{
+		pair<PtrMap::iterator,bool> mapins;
+
+		/* insert mapping from client pointer to our real device pointer */
+		mapins = ptr_map.insert(PtrMap::value_type(client_pointer, real_pointer));
+		assert(mapins.second);
+
+		/* insert reverse mapping from real our device pointer to client pointer */
+		mapins = ptr_imap.insert(PtrMap::value_type(real_pointer, client_pointer));
+		assert(mapins.second);
+	}
+
+	device_ptr device_ptr_from_client_pointer(device_ptr client_pointer)
+	{
+		PtrMap::iterator i = ptr_map.find(client_pointer);
+		assert(i != ptr_map.end());
+		return i->second;
+	}
+
+	device_ptr device_ptr_from_client_pointer_erase(device_ptr client_pointer)
+	{
+		PtrMap::iterator i = ptr_map.find(client_pointer);
+		assert(i != ptr_map.end());
+
+		device_ptr result = i->second;
+
+		/* erase the mapping */
+		ptr_map.erase(i);
+
+		/* erase the reverse mapping */
+		PtrMap::iterator irev = ptr_imap.find(result);
+		assert(irev != ptr_imap.end());
+		ptr_imap.erase(irev);
+
+		/* erase the data vector */
+		DataMap::iterator idata = mem_data.find(client_pointer);
+		assert(idata != mem_data.end());
+		mem_data.erase(idata);
+
+		return result;
+	}
+
 	void process(RPCReceive& rcv)
 	{
-		// fprintf(stderr, "receive process %s\n", rcv.name.c_str());
+		fprintf(stderr, "receive process %s\n", rcv.name.c_str());
 
 		if(rcv.name == "mem_alloc") {
 			MemoryType type;
 			network_device_memory mem;
-			device_ptr remote_pointer;
+			device_ptr client_pointer;
 
 			rcv.read(mem);
 			rcv.read(type);
 
-			/* todo: CPU needs mem.data_pointer */
+			client_pointer = mem.device_pointer;
 
-			remote_pointer = mem.device_pointer;
+			/* create a memory buffer for the device buffer */
+			size_t data_size = mem.memory_size();
+			DataVector &data_v = data_vector_insert(client_pointer, data_size);
 
-			mem_data[remote_pointer] = vector<uint8_t>();
-			mem_data[remote_pointer].resize(mem.memory_size());
-			if(mem.memory_size())
-				mem.data_pointer = (device_ptr)&(mem_data[remote_pointer][0]);
+			if(data_size)
+				mem.data_pointer = (device_ptr)&(data_v[0]);
 			else
 				mem.data_pointer = 0;
 
+			/* perform the allocation on the actual device */
 			device->mem_alloc(mem, type);
 
-			ptr_map[remote_pointer] = mem.device_pointer;
-			ptr_imap[mem.device_pointer] = remote_pointer;
+			/* store a mapping to/from client_pointer and real device pointer */
+			pointer_mapping_insert(client_pointer, mem.device_pointer);
 		}
 		else if(rcv.name == "mem_copy_to") {
 			network_device_memory mem;
 
 			rcv.read(mem);
 
-			device_ptr remote_pointer = mem.device_pointer;
-			mem.data_pointer = (device_ptr)&(mem_data[remote_pointer][0]);
+			device_ptr client_pointer = mem.device_pointer;
 
-			rcv.read_buffer((uint8_t*)mem.data_pointer, mem.memory_size());
+			DataVector &data_v = data_vector_find(client_pointer);
 
-			mem.device_pointer = ptr_map[remote_pointer];
+			size_t data_size = mem.memory_size();
 
+			/* get pointer to memory buffer	for device buffer */
+			mem.data_pointer = (device_ptr)&data_v[0];
+
+			/* copy data from network into memory buffer */
+			rcv.read_buffer((uint8_t*)mem.data_pointer, data_size);
+
+			/* translate the client pointer to a real device pointer */
+			mem.device_pointer = device_ptr_from_client_pointer(client_pointer);
+
+			/* copy the data from the memory buffer to the device buffer */
 			device->mem_copy_to(mem);
 		}
 		else if(rcv.name == "mem_copy_from") {
@@ -316,37 +429,44 @@ protected:
 			rcv.read(h);
 			rcv.read(elem);
 
-			device_ptr remote_pointer = mem.device_pointer;
-			mem.device_pointer = ptr_map[remote_pointer];
-			mem.data_pointer = (device_ptr)&(mem_data[remote_pointer][0]);
+			device_ptr client_pointer = mem.device_pointer;
+			mem.device_pointer = device_ptr_from_client_pointer(client_pointer);
+
+			DataVector &data_v = data_vector_find(client_pointer);
+
+			mem.data_pointer = (device_ptr)&(data_v[0]);
 
 			device->mem_copy_from(mem, y, w, h, elem);
 
+			size_t data_size = mem.memory_size();
+			cout << "Responding to mem_copy_from size=" << data_size << std::endl;
+
 			RPCSend snd(socket);
 			snd.write();
-			snd.write_buffer((uint8_t*)mem.data_pointer, mem.memory_size());
+			snd.write_buffer((uint8_t*)mem.data_pointer, data_size);
 		}
 		else if(rcv.name == "mem_zero") {
 			network_device_memory mem;
 			
 			rcv.read(mem);
-			device_ptr remote_pointer = mem.device_pointer;
-			mem.device_pointer = ptr_map[mem.device_pointer];
-			mem.data_pointer = (device_ptr)&(mem_data[remote_pointer][0]);
+			device_ptr client_pointer = mem.device_pointer;
+			mem.device_pointer = device_ptr_from_client_pointer(client_pointer);
+
+			DataVector &data_v = data_vector_find(client_pointer);
+
+			mem.data_pointer = (device_ptr)&(data_v[0]);
 
 			device->mem_zero(mem);
 		}
 		else if(rcv.name == "mem_free") {
 			network_device_memory mem;
-			device_ptr remote_pointer;
+			device_ptr client_pointer;
 
 			rcv.read(mem);
 
-			remote_pointer = mem.device_pointer;
-			mem.device_pointer = ptr_map[mem.device_pointer];
-			ptr_map.erase(remote_pointer);
-			ptr_imap.erase(mem.device_pointer);
-			mem_data.erase(remote_pointer);
+			client_pointer = mem.device_pointer;
+
+			mem.device_pointer = device_ptr_from_client_pointer_erase(client_pointer);
 
 			device->mem_free(mem);
 		}
@@ -367,52 +487,68 @@ protected:
 			string name;
 			bool interpolation;
 			bool periodic;
-			device_ptr remote_pointer;
+			device_ptr client_pointer;
 
 			rcv.read(name);
 			rcv.read(mem);
 			rcv.read(interpolation);
 			rcv.read(periodic);
 
-			remote_pointer = mem.device_pointer;
+			client_pointer = mem.device_pointer;
 
-			mem_data[remote_pointer] = vector<uint8_t>();
-			mem_data[remote_pointer].resize(mem.memory_size());
-			if(mem.memory_size())
-				mem.data_pointer = (device_ptr)&(mem_data[remote_pointer][0]);
+			size_t data_size = mem.memory_size();
+
+			DataVector &data_v = data_vector_insert(client_pointer, data_size);
+
+			if(data_size)
+				mem.data_pointer = (device_ptr)&(data_v[0]);
 			else
 				mem.data_pointer = 0;
 
-			rcv.read_buffer((uint8_t*)mem.data_pointer, mem.memory_size());
+			rcv.read_buffer((uint8_t*)mem.data_pointer, data_size);
 
 			device->tex_alloc(name.c_str(), mem, interpolation, periodic);
 
-			ptr_map[remote_pointer] = mem.device_pointer;
-			ptr_imap[mem.device_pointer] = remote_pointer;
+			pointer_mapping_insert(client_pointer, mem.device_pointer);
 		}
 		else if(rcv.name == "tex_free") {
 			network_device_memory mem;
-			device_ptr remote_pointer;
+			device_ptr client_pointer;
 
 			rcv.read(mem);
 
-			remote_pointer = mem.device_pointer;
-			mem.device_pointer = ptr_map[mem.device_pointer];
-			ptr_map.erase(remote_pointer);
-			ptr_map.erase(mem.device_pointer);
-			mem_data.erase(remote_pointer);
+			client_pointer = mem.device_pointer;
+
+			mem.device_pointer = device_ptr_from_client_pointer_erase(client_pointer);
 
 			device->tex_free(mem);
+		}
+		else if(rcv.name == "load_kernels") {
+			bool experimental;
+			rcv.read(experimental);
+
+			bool result;
+			result = device->load_kernels(experimental);
+			RPCSend snd(socket);
+			snd.add(result);
+			snd.write();
 		}
 		else if(rcv.name == "task_add") {
 			DeviceTask task;
 
 			rcv.read(task);
 
-			if(task.buffer) task.buffer = ptr_map[task.buffer];
-			if(task.rgba) task.rgba = ptr_map[task.rgba];
-			if(task.shader_input) task.shader_input = ptr_map[task.shader_input];
-			if(task.shader_output) task.shader_output = ptr_map[task.shader_output];
+			if(task.buffer)
+				task.buffer = device_ptr_from_client_pointer(task.buffer);
+
+			if(task.rgba)
+				task.rgba = device_ptr_from_client_pointer(task.rgba);
+
+			if(task.shader_input)
+				task.shader_input = device_ptr_from_client_pointer(task.shader_input);
+
+			if(task.shader_output)
+				task.shader_output = device_ptr_from_client_pointer(task.shader_output);
 
 			task.acquire_tile = function_bind(&DeviceServer::task_acquire_tile, this, _1, _2);
 			task.release_tile = function_bind(&DeviceServer::task_release_tile, this, _1);
@@ -430,6 +566,16 @@ protected:
 		}
 		else if(rcv.name == "task_cancel") {
 			device->task_cancel();
+		}
+		else if(rcv.name == "acquire_tile") {
+			RenderTile tile;
+			rcv.read(tile);
+			//
+		}
+		else
+		{
+			cout << "Unhandled op in CyclesServer::process" << rcv.name << std::endl;
+			raise(SIGTRAP);
 		}
 	}
 
@@ -506,9 +652,9 @@ protected:
 	tcp::socket& socket;
 
 	/* mapping of remote to local pointer */
-	map<device_ptr, device_ptr> ptr_map;
-	map<device_ptr, device_ptr> ptr_imap;
-	map<device_ptr, vector<uint8_t> > mem_data;
+	PtrMap ptr_map;
+	PtrMap ptr_imap;
+	DataMap mem_data;
 
 	thread_mutex acquire_mutex;
 

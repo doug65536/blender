@@ -73,7 +73,12 @@ public:
 
 class Device {
 protected:
-	Device(Stats &stats_) : stats(stats_) {}
+	Device(DeviceInfo& info, Stats &stats_, bool background)
+		: background(background)
+		, info(info)
+		, stats(stats_)
+	{
+	}
 
 	bool background;
 	string error_msg;

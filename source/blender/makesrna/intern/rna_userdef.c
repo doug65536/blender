@@ -54,6 +54,7 @@ static EnumPropertyItem compute_device_type_items[] = {
 	{USER_COMPUTE_DEVICE_NONE, "NONE", 0, "None", "Don't use compute device"},
 	{USER_COMPUTE_DEVICE_CUDA, "CUDA", 0, "CUDA", "Use CUDA for GPU acceleration"},
 	{USER_COMPUTE_DEVICE_OPENCL, "OPENCL", 0, "OpenCL", "Use OpenCL for GPU acceleration"},
+	{USER_COMPUTE_DEVICE_NETWORK, "NETWORK", 0, "Network", "Use Network device"},
 	{ 0, NULL, 0, NULL, NULL}
 };
 #endif
@@ -415,6 +416,7 @@ static EnumPropertyItem *rna_userdef_compute_device_type_itemf(bContext *UNUSED(
 		RNA_enum_items_add_value(&item, &totitem, compute_device_type_items, USER_COMPUTE_DEVICE_CUDA);
 	if (CCL_compute_device_list(1))
 		RNA_enum_items_add_value(&item, &totitem, compute_device_type_items, USER_COMPUTE_DEVICE_OPENCL);
+	RNA_enum_items_add_value(&item, &totitem, compute_device_type_items, USER_COMPUTE_DEVICE_NETWORK);
 
 	RNA_enum_item_end(&item, &totitem);
 	*free = 1;
@@ -443,6 +445,25 @@ static EnumPropertyItem *rna_userdef_compute_device_itemf(bContext *UNUSED(C), P
 		tmp.name = "CPU";
 		tmp.identifier = "CPU";
 		RNA_enum_item_add(&item, &totitem, &tmp);
+	}
+	else if (U.compute_device_type == USER_COMPUTE_DEVICE_NETWORK) {
+		CCLDeviceInfo *devices = CCL_compute_device_list(2);
+		int a;
+
+		if (devices) {
+			for (a = 0; devices[a].identifier[0]; a++) {
+				tmp.value = devices[a].value;
+				tmp.identifier = devices[a].identifier;
+				tmp.name = devices[a].name;
+				RNA_enum_item_add(&item, &totitem, &tmp);
+			}
+		}
+		else {
+			tmp.value = 0;
+			tmp.name = "CPU";
+			tmp.identifier = "CPU";
+			RNA_enum_item_add(&item, &totitem, &tmp);
+		}
 	}
 	else {
 		/* get device list from cycles. it would be good to make this generic

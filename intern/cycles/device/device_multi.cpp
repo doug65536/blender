@@ -47,10 +47,10 @@ public:
 	device_ptr unique_ptr;
 
 	MultiDevice(DeviceInfo& info, Stats &stats, bool background_)
-	: Device(stats), unique_ptr(1)
+		: Device(info, stats, background_)
+	, unique_ptr(1)
 	{
 		Device *device;
-		background = background_;
 
 		foreach(DeviceInfo& subinfo, info.multi_devices) {
 			device = Device::create(subinfo, stats, background);

@@ -51,6 +51,7 @@ endif()
 
 if(WITH_CYCLES_NETWORK)
 	add_definitions(-DWITH_NETWORK)
+	set(WITH_NETWORK TRUE)
 endif()
 
 if(WITH_CYCLES_OSL)

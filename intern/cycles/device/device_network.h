@@ -19,7 +19,7 @@
 #ifndef __DEVICE_NETWORK_H__
 #define __DEVICE_NETWORK_H__
 
-#ifdef WITH_NETWORK
+#if 1 || defined(WITH_NETWORK)
 
 #include <boost/archive/text_iarchive.hpp>
 #include <boost/archive/text_oarchive.hpp>
@@ -72,6 +72,7 @@ public:
 	: name(name_), socket(socket_), archive(archive_stream), sent(false)
 	{
 		archive & name_;
+		cout << "Sending RPC: " << name << std::endl;
 	}
 
 	~RPCSend()
@@ -100,13 +101,14 @@ public:
 		archive & task.offset & task.stride;
 		archive & task.shader_input & task.shader_output & task.shader_eval_type;
 		archive & task.shader_x & task.shader_w;
+		archive & task.need_finish_queue;
 	}
 
 	void add(const RenderTile& tile)
 	{
 		archive & tile.x & tile.y & tile.w & tile.h;
 		archive & tile.start_sample & tile.num_samples & tile.sample;
-		archive & tile.offset & tile.stride;
+		archive & tile.resolution & tile.offset & tile.stride;
 		archive & tile.buffer & tile.rng_state & tile.rgba;
 	}
 
@@ -193,15 +195,23 @@ public:
 					archive = new boost::archive::text_iarchive(*archive_stream);
 
 					*archive & name;
+
+					cout << "Got RPCReceive op: " << name << std::endl;
 				}
-				else
-					cout << "Network receive error: data size doens't match header\n";
+				else {
+					cout << "Network receive error: data size doens't match header" << std::endl;
+					raise(SIGTRAP);
+				}
 			}
-			else
-				cout << "Network receive error: can't decode data size from header\n";
+			else {
+				cout << "Network receive error: can't decode data size from header" << std::endl;
+				raise(SIGTRAP);
+			}
 		}
-		else
-			cout << "Network receive error: invalid header size\n";
+		else {
+			cout << "Network receive error: invalid header size" << std::endl;
+			raise(SIGTRAP);
+		}
 	}
 
 	~RPCReceive()
@@ -237,9 +247,10 @@ public:
 
 		*archive & type & task.x & task.y & task.w & task.h;
 		*archive & task.rgba & task.buffer & task.sample & task.num_samples;
-		*archive & task.resolution & task.offset & task.stride;
+		*archive & task.offset & task.stride;
 		*archive & task.shader_input & task.shader_output & task.shader_eval_type;
 		*archive & task.shader_x & task.shader_w;
+		*archive & task.need_finish_queue;
 
 		task.type = (DeviceTask::Type)type;
 	}

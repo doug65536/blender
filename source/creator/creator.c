@@ -1451,12 +1451,22 @@ int main(int argc, const char **UNUSED(argv_c)) /* Do not mess with const */
 int main(int argc, const char **argv)
 #endif
 {
-	bContext *C = CTX_create();
+	bContext *C;
 	SYS_SystemHandle syshandle;
 
 #ifndef WITH_PYTHON_MODULE
 	bArgs *ba;
 #endif
+
+#ifndef NDEBUG
+	/* force stdout to line buffered when debugging so if the dev is
+	 * using an IDE that pipes stdout, it will not be fully buffered.
+	 * Note that this *must* be done before stdout is used, so do it
+	 * as soon as possible. */
+	setvbuf(stdout, NULL, _IOLBF, 4096);
+#endif
+
+	C = CTX_create();
 
 #ifdef WIN32
 	wchar_t **argv_16 = CommandLineToArgvW(GetCommandLineW(), &argc);

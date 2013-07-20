@@ -96,7 +96,7 @@ Session::~Session()
 		wait();
 	}
 
-	if(display && params.output_path != "") {
+	if(display && !params.output_path.empty()) {
 		tonemap();
 
 		progress.set_status("Writing Image", params.output_path);
@@ -243,7 +243,7 @@ void Session::run_gpu()
 			/* update scene */
 			update_scene();
 
-			if(device->error_message() != "")
+			if(!device->error_message().empty())
 				progress.set_cancel(device->error_message());
 
 			if(progress.get_cancel())
@@ -264,7 +264,7 @@ void Session::run_gpu()
 
 			device->task_wait();
 
-			if(device->error_message() != "")
+			if(!device->error_message().empty())
 				progress.set_cancel(device->error_message());
 
 			/* update status and timing */
@@ -284,7 +284,7 @@ void Session::run_gpu()
 				}
 			}
 
-			if(device->error_message() != "")
+			if(!device->error_message().empty())
 				progress.set_cancel(device->error_message());
 
 			tiles_written = update_progressive_refine(progress.get_cancel());
@@ -534,7 +534,7 @@ void Session::run_cpu()
 			/* update scene */
 			update_scene();
 
-			if(device->error_message() != "")
+			if(!device->error_message().empty())
 				progress.set_cancel(device->error_message());
 
 			if(progress.get_cancel())
@@ -552,7 +552,7 @@ void Session::run_cpu()
 			if(!params.background)
 				need_tonemap = true;
 
-			if(device->error_message() != "")
+			if(!device->error_message().empty())
 				progress.set_cancel(device->error_message());
 		}
 
@@ -574,7 +574,7 @@ void Session::run_cpu()
 				tonemap();
 			}
 
-			if(device->error_message() != "")
+			if(!device->error_message().empty())
 				progress.set_cancel(device->error_message());
 
 			tiles_written = update_progressive_refine(progress.get_cancel());
@@ -595,7 +595,7 @@ void Session::run()
 
 		if(!device->load_kernels(params.experimental)) {
 			string message = device->error_message();
-			if(message == "")
+			if(message.empty())
 				message = "Failed loading render kernel, see console for errors";
 
 			progress.set_status("Error", message);
@@ -799,7 +799,7 @@ void Session::update_status_time(bool show_pause, bool show_done)
 	}
 	else {
 		status = substatus;
-		substatus = "";
+		substatus.clear();
 	}
 
 	progress.set_status(status, substatus);

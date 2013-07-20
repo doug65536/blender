@@ -31,12 +31,24 @@ using namespace ccl;
 
 int main(int argc, const char **argv)
 {
+#ifndef NDEBUG
+	/* force stdout to line buffered when debugging so if the dev is
+	 * using an IDE that pipes stdout, it will not be fully buffered.
+	 * Note that this *must* be done before stdout is used, so do it
+	 * as soon as possible. */
+	setvbuf(stdout, NULL, _IOLBF, 4096);
+	setvbuf(stderr, NULL, _IOLBF, 4096);
+	std::cout.sync_with_stdio();
+	std::cerr.sync_with_stdio();
+#endif
+
 	path_init();
 
 	/* device types */
 	string devicelist = "";
 	string devicename = "cpu";
 	bool list = false;
+	int threads = 0;
 
 	vector<DeviceType>& types = Device::available_types();
 
@@ -53,6 +65,7 @@ int main(int argc, const char **argv)
 	ap.options ("Usage: cycles_server [options]",
 		"--device %s", &devicename, ("Devices to use: " + devicelist).c_str(),
 		"--list-devices", &list, "List information about all available devices",
+		"--threads %d", &threads, "Number of threads to use",
 		NULL);
 
 	if(ap.parse(argc, argv) < 0) {
@@ -86,11 +99,11 @@ int main(int argc, const char **argv)
 		}
 	}
 
-	TaskScheduler::init();
+	TaskScheduler::init(threads);
 
 	while(1) {
 		Stats stats;
-		Device *device = Device::create(device_info, stats);
+		Device *device = Device::create(device_info, stats, true);
 		printf("Cycles Server with device: %s\n", device->info.description.c_str());
 		device->server_run();
 		delete device;

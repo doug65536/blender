@@ -424,9 +424,8 @@ public:
 	}
 
 	OpenCLDevice(DeviceInfo& info, Stats &stats, bool background_)
-	  : Device(stats)
+	  : Device(info, stats, background_)
 	{
-		background = background_;
 		cpPlatform = NULL;
 		cdDevice = NULL;
 		cxContext = NULL;

@@ -29,7 +29,9 @@ from bpy.props import (BoolProperty,
 
 enum_devices = (
     ('CPU', "CPU", "Use CPU for rendering"),
-    ('GPU', "GPU Compute", "Use GPU compute device for rendering, configured in user preferences"))
+    ('GPU', "Compute Device", "Use compute device (OpenCL or CUDA) for rendering, configured in user preferences"),
+    ('NETWORK', "Networked Device", "Use networked device for rendering")
+    )
 
 enum_feature_set = (
     ('SUPPORTED', "Supported", "Only use finished and supported features"),
