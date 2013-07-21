@@ -52,6 +52,8 @@ public:
 	device_ptr mem_counter;
 	DeviceTask the_task; /* todo: handle multiple tasks */
 
+	thread_mutex rpc_lock;
+
 	NetworkDevice(DeviceInfo& info, Stats &stats, const char *address)
 		: Device(info, stats, true)
 		, socket(io_service)
@@ -85,6 +87,8 @@ public:
 
 	void mem_alloc(device_memory& mem, MemoryType type)
 	{
+		thread_scoped_lock lock(rpc_lock);
+
 		mem.device_pointer = ++mem_counter;
 
 		RPCSend snd(socket, "mem_alloc");
@@ -96,6 +100,8 @@ public:
 
 	void mem_copy_to(device_memory& mem)
 	{
+		thread_scoped_lock lock(rpc_lock);
+
 		RPCSend snd(socket, "mem_copy_to");
 
 		snd.add(mem);
@@ -105,6 +111,8 @@ public:
 
 	void mem_copy_from(device_memory& mem, int y, int w, int h, int elem)
 	{
+		thread_scoped_lock lock(rpc_lock);
+
 		size_t data_size = mem.memory_size();
 		cout << "Requesting mem_copy_from size=" << data_size << std::endl;
 
@@ -123,6 +131,8 @@ public:
 
 	void mem_zero(device_memory& mem)
 	{
+		thread_scoped_lock lock(rpc_lock);
+
 		RPCSend snd(socket, "mem_zero");
 
 		snd.add(mem);
@@ -132,6 +142,8 @@ public:
 	void mem_free(device_memory& mem)
 	{
 		if(mem.device_pointer) {
+			thread_scoped_lock lock(rpc_lock);
+
 			RPCSend snd(socket, "mem_free");
 
 			snd.add(mem);
@@ -143,6 +155,8 @@ public:
 
 	void const_copy_to(const char *name, void *host, size_t size)
 	{
+		thread_scoped_lock lock(rpc_lock);
+
 		RPCSend snd(socket, "const_copy_to");
 
 		string name_string(name);
@@ -155,6 +169,8 @@ public:
 
 	void tex_alloc(const char *name, device_memory& mem, bool interpolation, bool periodic)
 	{
+		thread_scoped_lock lock(rpc_lock);
+
 		mem.device_pointer = ++mem_counter;
 
 		RPCSend snd(socket, "tex_alloc");
@@ -172,6 +188,8 @@ public:
 	void tex_free(device_memory& mem)
 	{
 		if(mem.device_pointer) {
+			thread_scoped_lock lock(rpc_lock);
+
 			RPCSend snd(socket, "tex_free");
 
 			snd.add(mem);
@@ -183,6 +201,8 @@ public:
 
 	bool load_kernels(bool experimental)
 	{
+		thread_scoped_lock lock(rpc_lock);
+
 		RPCSend snd(socket, "load_kernels");
 		snd.add(experimental);
 		snd.write();
@@ -196,6 +216,8 @@ public:
 
 	void task_add(DeviceTask& task)
 	{
+		thread_scoped_lock lock(rpc_lock);
+
 		the_task = task;
 
 		RPCSend snd(socket, "task_add");
@@ -205,32 +227,45 @@ public:
 
 	void task_wait()
 	{
+		thread_scoped_lock lock(rpc_lock);
+
 		RPCSend snd(socket, "task_wait");
 		snd.write();
+
+		lock.unlock();
 
 		TileList the_tiles;
 
 		/* todo: run this threaded for connecting to multiple clients */
 		for(;;) {
-			RPCReceive rcv(socket);
 			RenderTile tile;
 
+			lock.lock();
+			RPCReceive rcv(socket);
+
 			if(rcv.name == "acquire_tile") {
+				lock.unlock();
+
 				/* todo: watch out for recursive calls! */
 				if(the_task.acquire_tile(this, tile)) { /* write return as bool */
 					the_tiles.push_back(tile);
 
+					lock.lock();
 					RPCSend snd(socket, "acquire_tile");
 					snd.add(tile);
 					snd.write();
+					lock.unlock();
 				}
 				else {
+					lock.lock();
 					RPCSend snd(socket, "acquire_tile_none");
 					snd.write();
+					lock.unlock();
 				}
 			}
 			else if(rcv.name == "release_tile") {
 				rcv.read(tile);
+				lock.unlock();
 
 				TileList::iterator it = tile_list_find(the_tiles, tile);
 				if (it != the_tiles.end()) {
@@ -242,16 +277,21 @@ public:
 
 				the_task.release_tile(tile);
 
+				lock.lock();
 				RPCSend snd(socket, "release_tile");
 				snd.write();
+				lock.unlock();
 			}
 			else if(rcv.name == "task_wait_done")
 				break;
+			else
+				lock.unlock();
 		}
 	}
 
 	void task_cancel()
 	{
+		thread_scoped_lock lock(rpc_lock);
 		RPCSend snd(socket, "task_cancel");
 		snd.write();
 	}

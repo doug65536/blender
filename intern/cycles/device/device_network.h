@@ -207,6 +207,12 @@ public:
 		vector<char> header(8);
 		size_t len = boost::asio::read(socket, boost::asio::buffer(header));
 
+		static int race_detect;
+		if (__sync_add_and_fetch(&race_detect, 1) != 1) {
+			race_detect = race_detect;
+			raise(SIGTRAP);
+		}
+
 		SyncOutputStream() << "Input header length=" << len;
 
 		/* verify if we got something */
@@ -248,6 +254,11 @@ public:
 		}
 		else {
 			SyncOutputStream() << "Network receive error: invalid header size";
+			raise(SIGTRAP);
+		}
+
+		if (__sync_add_and_fetch(&race_detect, -1) != 0) {
+			race_detect = race_detect;
 			raise(SIGTRAP);
 		}
 	}
