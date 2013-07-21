@@ -57,15 +57,15 @@ public:
 			devices.push_back(SubDevice(device));
 		}
 
-#if 0 //def WITH_NETWORK
+#ifdef WITH_NETWORK
 		/* try to add network devices */
 		ServerDiscovery discovery(true);
 		time_sleep(1.0);
 
-		list<string> servers = discovery.get_server_list();
+		vector<string> servers = discovery.get_server_list();
 
 		foreach(string& server, servers) {
-			device = device_network_create(info, server.c_str());
+			device = device_network_create(info, stats, server.c_str());
 			if(device)
 				devices.push_back(SubDevice(device));
 		}

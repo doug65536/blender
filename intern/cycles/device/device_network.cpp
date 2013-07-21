@@ -26,17 +26,19 @@ CCL_NAMESPACE_BEGIN
 
 #if 1 || defined(WITH_NETWORK)
 
+thread_mutex SyncOutputStream::stream_lock;
+
 typedef map<device_ptr, device_ptr> PtrMap;
 typedef vector<uint8_t> DataVector;
 typedef map<device_ptr, DataVector> DataMap;
 
-/* tiles are mirrored on the server side, in a list */
-typedef list<RenderTile> TileList;
+/* tile list */
+typedef vector<RenderTile> TileList;
 
 /* search a list of tiles and find the one that matches the passed render tile */
 static TileList::iterator tile_list_find(TileList& tile_list, RenderTile& tile)
 {
-	for(list<RenderTile>::iterator it = tile_list.begin(); it != tile_list.end(); ++it)
+	for(TileList::iterator it = tile_list.begin(); it != tile_list.end(); ++it)
 		if(tile.x == it->x && tile.y == it->y && tile.start_sample == it->start_sample)
 			return it;
 	return tile_list.end();

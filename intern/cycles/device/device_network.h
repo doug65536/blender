@@ -30,6 +30,8 @@
 #include <boost/thread.hpp>
 
 #include <iostream>
+#include <sstream>
+#include <deque>
 
 #include "buffers.h"
 
@@ -45,6 +47,32 @@ using std::cerr;
 using std::hex;
 using std::setw;
 using std::exception;
+
+class SyncOutputStream
+{
+	static thread_mutex stream_lock;
+	mutable thread_scoped_lock lock;
+	mutable stringstream ss;
+
+public:
+	SyncOutputStream()
+	{
+		lock = thread_scoped_lock(stream_lock);
+	}
+
+	~SyncOutputStream()
+	{
+		std::cout << ss.str() << std::endl;
+		lock.unlock();
+	}
+
+	template<typename T>
+	friend const SyncOutputStream &operator<<(const SyncOutputStream &s, const T &value)
+	{
+		s.ss << value;
+		return s;
+	}
+};
 
 using boost::asio::ip::tcp;
 
@@ -71,14 +99,14 @@ public:
 	RPCSend(tcp::socket& socket_, const string& name_ = "")
 	: name(name_), socket(socket_), archive(archive_stream), sent(false)
 	{
+		SyncOutputStream() << "Constructing RPC send: " << name;
 		archive & name_;
-		cout << "Sending RPC: " << name << std::endl;
 	}
 
 	~RPCSend()
 	{
 		if(!sent)
-			fprintf(stderr, "Error: RPC %s not sent\n", name.c_str());
+			SyncOutputStream() << "Error: RPC " << name << " not sent";
 	}
 
 	void add(const device_memory& mem)
@@ -119,6 +147,8 @@ public:
 		/* get string from stream */
 		string archive_str = archive_stream.str();
 
+		SyncOutputStream() << "Writing output header, len=" << archive_str.length();
+
 		/* first send fixed size header with size of following data */
 		ostringstream header_stream;
 		header_stream << setw(8) << hex << archive_str.size();
@@ -129,7 +159,9 @@ public:
 			boost::asio::transfer_all(), error);
 
 		if(error.value())
-			cout << "Network send error: " << error.message() << "\n";
+			SyncOutputStream() << "Network send error: " << error.message();
+
+		SyncOutputStream() << "Writing output data, len=" << archive_str.length();
 
 		/* then send actual data */
 		boost::asio::write(socket,
@@ -137,13 +169,15 @@ public:
 			boost::asio::transfer_all(), error);
 		
 		if(error.value())
-			cout << "Network send error: " << error.message() << "\n";
+			SyncOutputStream() << "Network send error: " << error.message();
 
 		sent = true;
 	}
 
 	void write_buffer(void *buffer, size_t size)
 	{
+		SyncOutputStream() << "Writing BLOB, size=" << size;
+
 		boost::system::error_code error;
 
 		boost::asio::write(socket,
@@ -151,7 +185,7 @@ public:
 			boost::asio::transfer_all(), error);
 		
 		if(error.value())
-			cout << "Network send error: " << error.message() << "\n";
+			SyncOutputStream() << "Network send error: " << error.message();
 	}
 
 protected:
@@ -169,9 +203,13 @@ public:
 	RPCReceive(tcp::socket& socket_)
 	: socket(socket_), archive_stream(NULL), archive(NULL)
 	{
+		SyncOutputStream() << "Reading input header";
+
 		/* read head with fixed size */
 		vector<char> header(8);
 		size_t len = boost::asio::read(socket, boost::asio::buffer(header));
+
+		SyncOutputStream() << "Input header length=" << len;
 
 		/* verify if we got something */
 		if(len == header.size()) {
@@ -182,6 +220,8 @@ public:
 			size_t data_size;
 
 			if((header_stream >> hex >> data_size)) {
+				SyncOutputStream() << "Reading data, size=" << data_size;
+
 				vector<char> data(data_size);
 				size_t len = boost::asio::read(socket, boost::asio::buffer(data));
 
@@ -196,20 +236,20 @@ public:
 
 					*archive & name;
 
-					cout << "Got RPCReceive op: " << name << std::endl;
+					SyncOutputStream() << "Got RPCReceive op: " << name;
 				}
 				else {
-					cout << "Network receive error: data size doens't match header" << std::endl;
+					SyncOutputStream() << "Network receive error: data size doesn't match header";
 					raise(SIGTRAP);
 				}
 			}
 			else {
-				cout << "Network receive error: can't decode data size from header" << std::endl;
+				SyncOutputStream() << "Network receive error: can't decode data size from header";
 				raise(SIGTRAP);
 			}
 		}
 		else {
-			cout << "Network receive error: invalid header size" << std::endl;
+			SyncOutputStream() << "Network receive error: invalid header size";
 			raise(SIGTRAP);
 		}
 	}
@@ -238,7 +278,7 @@ public:
 		size_t len = boost::asio::read(socket, boost::asio::buffer(buffer, size));
 
 		if(len != size)
-			cout << "Network receive error: buffer size doesn't match expected size\n";
+			SyncOutputStream() << "Network receive error: buffer size doesn't match expected size";
 	}
 
 	void read(DeviceTask& task)
@@ -316,12 +356,12 @@ public:
 		delete work;
 	}
 
-	list<string> get_server_list()
+	vector<string> get_server_list()
 	{
-		list<string> result;
+		vector<string> result;
 
 		mutex.lock();
-		result = servers;
+		result = vector<string>(servers.begin(), servers.end());
 		mutex.unlock();
 
 		return result;
@@ -331,7 +371,7 @@ private:
 	void handle_receive_from(const boost::system::error_code& error, size_t size)
 	{
 		if(error) {
-			cout << "Server discovery receive error: " << error.message() << "\n";
+			SyncOutputStream() << "Server discovery receive error: " << error.message();
 			return;
 		}
 
@@ -346,11 +386,8 @@ private:
 					mutex.lock();
 
 					/* add address if it's not already in the list */
-					bool found = false;
-
-					foreach(string& server, servers)
-						if(server == address)
-							found = true;
+					bool found = std::find(servers.begin(), servers.end(),
+							address) != servers.end();
 
 					if(!found)
 						servers.push_back(address);
@@ -406,10 +443,21 @@ private:
 	/* buffer and endpoint for receiving messages */
 	char receive_buffer[256];
 	boost::asio::ip::udp::endpoint receive_endpoint;
+	
+	// os, version, devices, status, host name, group name, ip as far as fields go
+	struct ServerInfo {
+		string blender_version;
+		string os;
+		int device_count;
+		string status;
+		string host_name;
+		string group_name;
+		string host_addr;
+	};
 
 	/* collection of server addresses in list */
 	bool collect_servers;
-	list<string> servers;
+	vector<string> servers;
 };
 
 CCL_NAMESPACE_END
