@@ -51,19 +51,17 @@ using std::exception;
 class SyncOutputStream
 {
 	static thread_mutex stream_lock;
-	mutable thread_scoped_lock lock;
 	mutable stringstream ss;
 
 public:
 	SyncOutputStream()
 	{
-		lock = thread_scoped_lock(stream_lock);
 	}
 
 	~SyncOutputStream()
 	{
-		std::cout << ss.str() << std::endl;
-		lock.unlock();
+		thread_scoped_lock lock(stream_lock);
+		std::cout << ss.str() << std::endl << std::flush;
 	}
 
 	template<typename T>
@@ -147,12 +145,12 @@ public:
 		/* get string from stream */
 		string archive_str = archive_stream.str();
 
-		SyncOutputStream() << "Writing output header, len=" << archive_str.length();
-
 		/* first send fixed size header with size of following data */
 		ostringstream header_stream;
 		header_stream << setw(8) << hex << archive_str.size();
 		string header_str = header_stream.str();
+
+		SyncOutputStream() << "Sending output header, len=" << header_str.length();
 
 		boost::asio::write(socket,
 			boost::asio::buffer(header_str),
