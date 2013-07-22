@@ -64,6 +64,11 @@ public:
 		return pthread_join(pthread_id, NULL) == 0;
 	}
 
+	static pthread_t id()
+	{
+		return pthread_self();
+	}
+
 protected:
 	boost::function<void(void)> run_cb;
 	pthread_t pthread_id;

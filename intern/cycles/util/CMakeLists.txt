@@ -36,6 +36,7 @@ set(SRC_HEADERS
 	util_cache.h
 	util_cuda.h
 	util_debug.h
+	util_debugtrace.h
 	util_dynlib.h
 	util_foreach.h
 	util_function.h

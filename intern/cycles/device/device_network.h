@@ -39,6 +39,7 @@
 #include "util_list.h"
 #include "util_map.h"
 #include "util_string.h"
+#include "util_debugtrace.h"
 
 CCL_NAMESPACE_BEGIN
 
@@ -47,30 +48,6 @@ using std::cerr;
 using std::hex;
 using std::setw;
 using std::exception;
-
-class SyncOutputStream
-{
-	static thread_mutex stream_lock;
-	mutable stringstream ss;
-
-public:
-	SyncOutputStream()
-	{
-	}
-
-	~SyncOutputStream()
-	{
-		thread_scoped_lock lock(stream_lock);
-		std::cout << ss.str() << std::endl << std::flush;
-	}
-
-	template<typename T>
-	friend const SyncOutputStream &operator<<(const SyncOutputStream &s, const T &value)
-	{
-		s.ss << value;
-		return s;
-	}
-};
 
 using boost::asio::ip::tcp;
 
@@ -158,6 +135,8 @@ public:
 
 		if(error.value())
 			SyncOutputStream() << "Network send error: " << error.message();
+		else
+			SyncOutputStream() << "Sending output header done";
 
 		SyncOutputStream() << "Writing output data, len=" << archive_str.length();
 
@@ -168,6 +147,8 @@ public:
 		
 		if(error.value())
 			SyncOutputStream() << "Network send error: " << error.message();
+		else
+			SyncOutputStream() << "Writing output data done" << archive_str.length();
 
 		sent = true;
 	}
@@ -209,7 +190,6 @@ public:
 
 		static int race_detect;
 		if (__sync_add_and_fetch(&race_detect, 1) != 1) {
-			race_detect = race_detect;
 			raise(SIGTRAP);
 		}
 
@@ -258,7 +238,6 @@ public:
 		}
 
 		if (__sync_add_and_fetch(&race_detect, -1) != 0) {
-			race_detect = race_detect;
 			raise(SIGTRAP);
 		}
 	}

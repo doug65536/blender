@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE QtCreatorProject>
-<!-- Written by QtCreator 2.7.1, 2013-07-21T07:14:38. -->
+<!-- Written by QtCreator 2.7.1, 2013-07-21T12:55:58. -->
 <qtcreator>
  <data>
   <variable>ProjectExplorer.Project.ActiveTarget</variable>
@@ -617,7 +617,7 @@
     </valuelist>
     <value type="int" key="CMakeProjectManager.BaseEnvironmentBase">2</value>
     <value type="QString" key="CMakeProjectManager.CMakeRunConfiguation.Title">cycles_server</value>
-    <value type="QString" key="CMakeProjectManager.CMakeRunConfiguration.Arguments">--threads 1</value>
+    <value type="QString" key="CMakeProjectManager.CMakeRunConfiguration.Arguments">--threads 12</value>
     <value type="bool" key="CMakeProjectManager.CMakeRunConfiguration.UseTerminal">false</value>
     <valuelist type="QVariantList" key="CMakeProjectManager.CMakeRunConfiguration.UserEnvironmentChanges"/>
     <value type="QString" key="CMakeProjectManager.CMakeRunConfiguration.UserWorkingDirectory"></value>

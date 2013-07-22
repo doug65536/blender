@@ -21,10 +21,11 @@
 #include "device_network.h"
 
 #include "util_foreach.h"
+#include "util_debugtrace.h"
+
+#if defined(WITH_NETWORK)
 
 CCL_NAMESPACE_BEGIN
-
-#if 1 || defined(WITH_NETWORK)
 
 thread_mutex SyncOutputStream::stream_lock;
 
@@ -114,7 +115,7 @@ public:
 		thread_scoped_lock lock(rpc_lock);
 
 		size_t data_size = mem.memory_size();
-		cout << "Requesting mem_copy_from size=" << data_size << std::endl;
+		SyncOutputStream() << "Requesting mem_copy_from size=" << data_size << std::endl;
 
 		RPCSend snd(socket, "mem_copy_from");
 
@@ -318,7 +319,7 @@ void device_network_info(vector<DeviceInfo>& devices)
 
 class DeviceServer {
 public:
-	thread_mutex serializer_lock;
+	thread_mutex rpc_lock;
 
 	DeviceServer(Device *device_, tcp::socket& socket_)
 		: device(device_), socket(socket_)
@@ -329,12 +330,13 @@ public:
 	{
 		/* receive remote function calls */
 		for(;;) {
+			thread_scoped_lock lock(rpc_lock);
 			RPCReceive rcv(socket);
 
 			if(rcv.name == "stop")
 				break;
 
-			process(rcv);
+			process(rcv, lock);
 		}
 	}
 
@@ -409,7 +411,12 @@ protected:
 		return result;
 	}
 
-	void process(RPCReceive& rcv)
+	/* note that the lock must be already acquired upon entry.
+	 * This is necessary because the caller often peeks at
+	 * the header and delegates control to here when it doesn't
+	 * specifically handle the current RPC.
+	 * The lock must be unlocked before returning */
+	void process(RPCReceive& rcv, thread_scoped_lock &lock)
 	{
 		fprintf(stderr, "receive process %s\n", rcv.name.c_str());
 
@@ -420,6 +427,8 @@ protected:
 
 			rcv.read(mem);
 			rcv.read(type);
+
+			lock.unlock();
 
 			client_pointer = mem.device_pointer;
 
@@ -442,6 +451,7 @@ protected:
 			network_device_memory mem;
 
 			rcv.read(mem);
+			lock.unlock();
 
 			device_ptr client_pointer = mem.device_pointer;
 
@@ -481,16 +491,19 @@ protected:
 			device->mem_copy_from(mem, y, w, h, elem);
 
 			size_t data_size = mem.memory_size();
-			cout << "Responding to mem_copy_from size=" << data_size << std::endl;
+			SyncOutputStream() << "Responding to mem_copy_from size=" << data_size << std::endl;
 
 			RPCSend snd(socket);
 			snd.write();
 			snd.write_buffer((uint8_t*)mem.data_pointer, data_size);
+			lock.unlock();
 		}
 		else if(rcv.name == "mem_zero") {
 			network_device_memory mem;
 			
 			rcv.read(mem);
+			lock.unlock();
+
 			device_ptr client_pointer = mem.device_pointer;
 			mem.device_pointer = device_ptr_from_client_pointer(client_pointer);
 
@@ -505,6 +518,7 @@ protected:
 			device_ptr client_pointer;
 
 			rcv.read(mem);
+			lock.unlock();
 
 			client_pointer = mem.device_pointer;
 
@@ -521,6 +535,7 @@ protected:
 
 			vector<char> host_vector(size);
 			rcv.read_buffer(&host_vector[0], size);
+			lock.unlock();
 
 			device->const_copy_to(name_string.c_str(), &host_vector[0], size);
 		}
@@ -535,6 +550,7 @@ protected:
 			rcv.read(mem);
 			rcv.read(interpolation);
 			rcv.read(periodic);
+			lock.unlock();
 
 			client_pointer = mem.device_pointer;
 
@@ -558,6 +574,7 @@ protected:
 			device_ptr client_pointer;
 
 			rcv.read(mem);
+			lock.unlock();
 
 			client_pointer = mem.device_pointer;
 
@@ -574,11 +591,13 @@ protected:
 			RPCSend snd(socket);
 			snd.add(result);
 			snd.write();
+			lock.unlock();
 		}
 		else if(rcv.name == "task_add") {
 			DeviceTask task;
 
 			rcv.read(task);
+			lock.unlock();
 
 			if(task.buffer)
 				task.buffer = device_ptr_from_client_pointer(task.buffer);
@@ -601,22 +620,27 @@ protected:
 			device->task_add(task);
 		}
 		else if(rcv.name == "task_wait") {
+			lock.unlock();
 			device->task_wait();
 
+			lock.lock();
 			RPCSend snd(socket, "task_wait_done");
 			snd.write();
+			lock.unlock();
 		}
 		else if(rcv.name == "task_cancel") {
+			lock.unlock();
 			device->task_cancel();
 		}
 		else if(rcv.name == "acquire_tile") {
 			RenderTile tile;
 			rcv.read(tile);
+			lock.unlock();
 			//
 		}
 		else
 		{
-			cout << "Unhandled op in CyclesServer::process" << rcv.name << std::endl;
+			SyncOutputStream() << "Unhandled op in CyclesServer::process" << rcv.name << std::endl;
 			raise(SIGTRAP);
 		}
 	}
@@ -631,6 +655,7 @@ protected:
 		snd.write();
 
 		while(1) {
+			thread_scoped_lock lock(rpc_lock);
 			RPCReceive rcv(socket);
 
 			if(rcv.name == "acquire_tile") {
@@ -646,7 +671,7 @@ protected:
 			else if(rcv.name == "acquire_tile_none")
 				break;
 			else
-				process(rcv);
+				process(rcv, lock);
 		}
 
 		return result;
@@ -670,17 +695,20 @@ protected:
 		if(tile.rng_state) tile.rng_state = ptr_imap[tile.rng_state];
 		if(tile.rgba) tile.rgba = ptr_imap[tile.rgba];
 
+		thread_scoped_lock lock(rpc_lock);
 		RPCSend snd(socket, "release_tile");
 		snd.add(tile);
 		snd.write();
+		lock.unlock();
 
 		while(1) {
+			lock.lock();
 			RPCReceive rcv(socket);
 
 			if(rcv.name == "release_tile")
 				break;
 			else
-				process(rcv);
+				process(rcv, lock);
 		}
 	}
 
@@ -731,7 +759,8 @@ void Device::server_run()
 	}
 }
 
+CCL_NAMESPACE_END
+
 #endif
 
-CCL_NAMESPACE_END
 
