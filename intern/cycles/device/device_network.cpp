@@ -115,7 +115,7 @@ public:
 		thread_scoped_lock lock(rpc_lock);
 
 		size_t data_size = mem.memory_size();
-		SyncOutputStream() << "Requesting mem_copy_from size=" << data_size << std::endl;
+		SyncOutputStream() << "Requesting mem_copy_from size=" << data_size;
 
 		RPCSend snd(socket, "mem_copy_from");
 
@@ -491,7 +491,7 @@ protected:
 			device->mem_copy_from(mem, y, w, h, elem);
 
 			size_t data_size = mem.memory_size();
-			SyncOutputStream() << "Responding to mem_copy_from size=" << data_size << std::endl;
+			SyncOutputStream() << "Responding to mem_copy_from size=" << data_size;
 
 			RPCSend snd(socket);
 			snd.write();
@@ -640,7 +640,7 @@ protected:
 		}
 		else
 		{
-			SyncOutputStream() << "Unhandled op in CyclesServer::process" << rcv.name << std::endl;
+			SyncOutputStream() << "Unhandled op in CyclesServer::process" << rcv.name;
 			raise(SIGTRAP);
 		}
 	}
