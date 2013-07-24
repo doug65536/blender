@@ -64,14 +64,19 @@ public:
 
 		tcp::resolver resolver(io_service);
 		tcp::resolver::query query(address, portstr.str());
-		tcp::resolver::iterator endpoint_iterator = resolver.resolve(query);
-		tcp::resolver::iterator end;
 
 		boost::system::error_code error = boost::asio::error::host_not_found;
-		while(error && endpoint_iterator != end)
-		{
+
+		for (tcp::resolver::iterator e, i = resolver.resolve(query); i != e; ++i) {
+			cout << "Connecting to " << i->host_name() << "..." << std::endl;
+			socket.connect(*i, error);
+
+			if (!error) {
+				cout << "Connection to " << i->host_name() << " failed" << std::endl;
+				break;
+			}
+
 			socket.close();
-			socket.connect(*endpoint_iterator++, error);
 		}
 
 		if(error)
