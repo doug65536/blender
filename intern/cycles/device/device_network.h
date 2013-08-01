@@ -64,6 +64,18 @@ static const int DISCOVER_PORT = 5121;
 static const string DISCOVER_REQUEST_MSG = "REQUEST_RENDER_SERVER_IP";
 static const string DISCOVER_REPLY_MSG = "REPLY_RENDER_SERVER_IP";
 
+/* RAM copy of device memory on server side. On some devices, this is the
+ * actual data storage and the device doesn't have a copy, it uses it directly */
+
+class network_device_memory : public device_memory
+{
+public:
+	network_device_memory() {}
+	~network_device_memory() { device_pointer = 0; }
+
+	vector<char> local_data;
+};
+
 /* RPC protocol:
  * Each outgoing packet could be a call or it could be a response from a call.
  * Stream format for a packet:
@@ -264,7 +276,7 @@ protected:
 
 	void add(const std::string& str)
 	{
-		assert(str.length() < 256)
+		assert(str.length() < 256);
 		assert(add_point + 1 + 1 + str.length() <= buffer_max);
 		buffer[add_point++] = is_string;
 		buffer[add_point++] = (uint8_t)str.length();
@@ -391,6 +403,20 @@ protected:
 		read_point += 1 + size_bytes;
 	}
 
+	void read(string& result)
+	{
+		assert(read_point + 1 < buffer_max);
+		uint8_t type_len = buffer[read_point++];
+		assert((type_len & is_string) != 0);
+
+		uint8_t str_len = buffer[read_point++];
+		assert(str_len < 256);
+
+		result.assign(buffer + read_point, buffer + read_point + str_len);
+
+		read_point += str_len;
+	}
+
 public:
 	typedef std::pair<void*,uint32_t> ResponseInfo;
 
@@ -424,9 +450,8 @@ public:
 	{
 		invalid_call,
 
+		/* requests */
 		mem_alloc_request,
-		mem_alloc_response,
-
 		stop_request,
 		mem_mem_copy_to_request,
 		mem_copy_from_request,
@@ -438,11 +463,15 @@ public:
 		load_kernels_request,
 		task_add_request,
 		task_wait_request,
-
+		task_cancel_request,
 		acquire_tile_request,
-		acquire_tile_response,
-
 		release_tile_request,
+		task_wait_done_request,
+
+		/* responses */
+		response_flag = 0x80,
+		mem_alloc_response,
+		acquire_tile_response,
 		release_tile_response,
 
 		last_CallID
@@ -482,6 +511,7 @@ protected:
 	{
 	}
 
+public:
 	/* serialize a device_memory */
 	void add(const device_memory& mem)
 	{
@@ -495,7 +525,6 @@ protected:
 	}
 
 	/* deserialize a device_memory */
-	template<typename T>
 	void read(device_memory& mem)
 	{
 		int type;
@@ -505,7 +534,7 @@ protected:
 		Base::read(mem.data_width);
 		Base::read(mem.data_height);
 		Base::read(mem.device_pointer);
-		mem.data_type = (MemoryType)type;
+		mem.data_type = (DataType)type;
 	}
 
 	/* serialize a DeviceTask */
@@ -605,16 +634,60 @@ protected:
 
 };
 
+/* implement a pointer that knows when to delete its object on destruct */
+template<typename T>
+class OwnershipPointer
+{
+	T *item;
+	bool own;
+
+	OwnershipPointer(const OwnershipPointer&);
+	void operator=(const OwnershipPointer&);
+
+public:
+	OwnershipPointer()
+		: item(NULL), own(false)
+	{
+	}
+
+	OwnershipPointer(T *item, bool owned)
+		: item(item), own(owned)
+	{
+	}
+
+	~OwnershipPointer()
+	{
+		if (own)
+			delete item;
+	}
+
+	void assign(T *assigned_item, bool take_ownership)
+	{
+		if (own)
+			delete item;
+		item = assigned_item;
+		own = take_ownership;
+	}
+
+	T *operator*() { return item; }
+	const T *operator*() const { return item; }
+	T *operator->() { return item; }
+	const T *operator->() const { return item; }
+	operator T*() { return item; }
+	operator const T*() const { return item; }
+};
+
 class RPCCall_mem_alloc : public CyclesRPCCallBase
 {
-private:
-	device_memory &mem;
+public:
+	OwnershipPointer<device_memory> mem;
 	MemoryType type;
 
+private:
 	bool send_request()
 	{
 		int inttype = (int)type;
-		add(mem);
+		add(*mem);
 		add(inttype);
 		return false;
 	}
@@ -622,8 +695,21 @@ private:
 public:
 	RPCCall_mem_alloc(device_memory& mem, MemoryType type)
 		: CyclesRPCCallBase(mem_alloc_request)
-		, mem(mem), type(type)
+		, mem(&mem, false), type(type)
 	{}
+
+	RPCCall_mem_alloc(RPCHeader &header,
+			std::vector<uint8_t>& args_buffer, std::vector<uint8_t>& blob_buffer)
+	{
+
+	}
+
+	static void deserialize(CyclesRPCCallBase *incoming,
+			network_device_memory& out_mem, MemoryType& out_type)
+	{
+		incoming->read(out_mem);
+		incoming->read(out_type);
+	}
 };
 
 class RPCCall_stop : public CyclesRPCCallBase
@@ -642,31 +728,31 @@ public:
 class RPCCall_mem_copy_to : public CyclesRPCCallBase
 {
 private:
-	device_memory &mem;
+	OwnershipPointer<device_memory> mem;
 
 	bool send_request()
 	{
-		add(mem);
-		add_blob((void*)mem.data_pointer, mem.memory_size());
+		add(*mem);
+		add_blob((void*)mem->data_pointer, mem->memory_size());
 		return false;
 	}
 
 public:
 	RPCCall_mem_copy_to(device_memory& mem)
 		: CyclesRPCCallBase(mem_mem_copy_to_request)
-		, mem(mem)
+		, mem(&mem, false)
 	{}
 };
 
 class RPCCall_mem_copy_from : public CyclesRPCCallBase
 {
-	device_memory &mem;
+	OwnershipPointer<device_memory> mem;
 	int y, w, h, elem;
 	void *output;
 
 	bool send_request()
 	{
-		add(mem);
+		add(*mem);
 		add(y);
 		add(w);
 		add(h);
@@ -676,60 +762,60 @@ class RPCCall_mem_copy_from : public CyclesRPCCallBase
 
 	ResponseInfo response_info()
 	{
-		return ResponseInfo(output, mem.memory_size());
+		return ResponseInfo(output, mem->memory_size());
 	}
 
 public:
 	RPCCall_mem_copy_from(device_memory& mem,
 		int y, int w, int h, int elem, void *output)
 		: CyclesRPCCallBase(mem_copy_from_request)
-		, mem(mem), y(y), w(w), h(h), elem(elem), output(output)
+		, mem(&mem, false), y(y), w(w), h(h), elem(elem), output(output)
 	{}
 };
 
 class RPCCall_mem_zero : public CyclesRPCCallBase
 {
-	device_memory& mem;
+	OwnershipPointer<device_memory> mem;
 
 	bool send_request()
 	{
-		add(mem);
+		add(*mem);
 		return false;
 	}
 
 public:
 	RPCCall_mem_zero(device_memory& mem)
 		: CyclesRPCCallBase(mem_zero_request)
-		, mem(mem)
+		, mem(&mem, false)
 	{}
 };
 
 class RPCCall_mem_free : public CyclesRPCCallBase
 {
-	device_memory& mem;
+	OwnershipPointer<device_memory> mem;
 
 	bool send_request()
 	{
-		add(mem);
+		add(*mem);
 		return false;
 	}
 
 public:
 	RPCCall_mem_free(device_memory& mem)
 		: CyclesRPCCallBase(mem_free_request)
-		, mem(mem)
+		, mem(&mem, false)
 	{}
 };
 
 class RPCCall_const_copy_to : public CyclesRPCCallBase
 {
-	const std::string& name;
+	OwnershipPointer<const std::string> name;
 	void *data;
 	size_t size;
 
 	bool send_request()
 	{
-		add(name);
+		add(*name);
 		add(size);
 		add_blob(data, size);
 		return false;
@@ -738,24 +824,24 @@ class RPCCall_const_copy_to : public CyclesRPCCallBase
 public:
 	RPCCall_const_copy_to(const std::string& name, void *data, size_t size)
 		: CyclesRPCCallBase(const_copy_to_request)
-		, name(name), data(data), size(size)
+		, name(&name, false), data(data), size(size)
 	{}
 };
 
 class RPCCall_tex_alloc : public CyclesRPCCallBase
 {
-	const std::string& name;
-	device_memory& mem;
+	OwnershipPointer<const std::string> name;
+	OwnershipPointer<device_memory> mem;
 	bool interpolation, periodic;
 
 	bool send_request()
 	{
-		add(name);
-		add(mem);
+		add(*name);
+		add(*mem);
 		add(interpolation);
 		add(periodic);
 		/* FIXME: why are we sending this? */
-		add_blob((void*)mem.device_pointer, mem.memory_size());
+		add_blob((void*)mem->device_pointer, mem->memory_size());
 		return false;
 	}
 
@@ -763,24 +849,25 @@ public:
 	RPCCall_tex_alloc(const std::string& name,
 		device_memory& mem, bool interpolation, bool periodic)
 		: CyclesRPCCallBase(tex_alloc_request)
-		, name(name), mem(mem), interpolation(interpolation), periodic(periodic)
+		, name(&name, false), mem(&mem, false)
+		, interpolation(interpolation), periodic(periodic)
 	{}
 };
 
 class RPCCall_tex_free : public CyclesRPCCallBase
 {
-	device_memory& mem;
+	OwnershipPointer<device_memory> mem;
 
 	bool send_request()
 	{
-		add(mem);
+		add(*mem);
 		return false;
 	}
 
 public:
 	RPCCall_tex_free(device_memory& mem)
 		: CyclesRPCCallBase(tex_free_request)
-		, mem(mem)
+		, mem(&mem, false)
 	{}
 };
 
@@ -814,18 +901,18 @@ public:
 
 class RPCCall_task_add : public CyclesRPCCallBase
 {
-	DeviceTask& task;
+	OwnershipPointer<DeviceTask> task;
 
 	bool send_request()
 	{
-		add(task);
+		add(*task);
 		return false;
 	}
 
 public:
 	RPCCall_task_add(DeviceTask& task)
 		: CyclesRPCCallBase(task_add_request)
-		, task(task)
+		, task(&task, false)
 	{}
 };
 
@@ -840,6 +927,67 @@ public:
 	RPCCall_task_wait()
 		: CyclesRPCCallBase(task_wait_request)
 	{}
+};
+
+class RPCCall_task_cancel : public CyclesRPCCallBase
+{
+	bool send_request()
+	{
+		return false;
+	}
+
+public:
+	RPCCall_task_cancel()
+		: CyclesRPCCallBase(task_cancel_request)
+	{}
+};
+
+/* implements a generic thread-safe pool. Objects are guaranteed not to be moved.
+ * pooled objects must be copy-constructible and default constructible.
+ * they will only be copied when first created (until we can use c++11).
+ * the specified initialization method will be called on creation (after it is
+ * copied.) */
+template<typename T, void (T::*init_method)()>
+class LockedPool
+{
+	thread_mutex pool_lock;
+
+	/* using deque so growing it won't cause any of the items to move
+	 * to another address, maximize data locality, and allocate space
+	 * for many objects per allocation */
+	typedef std::deque<T> PoolStorage;
+	PoolStorage pool_storage;
+
+	/* pointers to unused items are stored in here */
+	typedef std::vector<T*> PoolFreeList;
+	PoolFreeList pool_free_list;
+
+public:
+
+	T *alloc_item()
+	{
+		T *result;
+		thread_scoped_lock lock(pool_lock);
+		if (pool_free_list.empty()) {
+			/* use item in free list */
+			result = pool_free_list.back();
+			pool_free_list.pop_back();
+		}
+		else {
+			/* need to create a new item
+			 * when we have c++11, use emplace_back here */
+			pool_storage.push_back(T());
+			result = &pool_storage.back();
+			result->*init_method();
+		}
+		return result;
+	}
+
+	void free_item(T *waiter)
+	{
+		thread_scoped_lock lock(pool_lock);
+		pool_free_list.push_back(waiter);
+	}
 };
 
 /* RPC stream manager
@@ -862,6 +1010,10 @@ class RPCStreamManager
 {
 	boost::asio::io_service io_service;
 	boost::asio::ip::tcp::socket socket;
+
+	/* there can be contention to send, because sends can be performed from any thread
+	 * there can't be contention to receive, we always have async receives up, and
+	 * receives are continuously services by the io_service thread */
 	thread_mutex send_lock;
 
 	/* receive stream management data */
@@ -880,8 +1032,7 @@ class RPCStreamManager
 	std::vector<char> recv_args_buffer;
 	std::vector<char> recv_blob_buffer;
 
-	/* object upon which to block when waiting for results */
-
+	/* object upon which to block when waiting */
 	class Waiter
 	{
 		/* mutex can't be copied, so use a pointer and enforce
@@ -949,68 +1100,32 @@ class RPCStreamManager
 				done_cond->wait(lock);
 		}
 
-		void notify_done()
+		void notify()
 		{
 			assert_initalized();
 			thread_scoped_lock lock(*done_lock);
+			done = true;
 			done_cond->notify_one();
 		}
 	};
 
 	/* we don't want to be constantly creating and destroying
 	 * mutices and condition variables, so pool them */
-	class WaiterPool
-	{
-		thread_mutex waiter_pool_lock;
-
-		/* using deque so growing it won't cause any of the items to move
-		 * to another address, maximize data locality, and allocate space
-		 * for many objects per allocation */
-		typedef std::deque<Waiter> WaiterPoolStorage;
-		WaiterPoolStorage waiter_pool_storage;
-
-		/* pointers to unused waiters are stored in here */
-		typedef std::vector<Waiter*> WaiterPoolFreeList;
-		WaiterPoolFreeList waiter_pool_free_list;
-
-	public:
-
-		Waiter *alloc_waiter()
-		{
-			Waiter *result;
-			thread_scoped_lock lock(waiter_pool_lock);
-			if (waiter_pool_free_list.empty()) {
-				/* use waiter in free list */
-				result = waiter_pool_free_list.back();
-				waiter_pool_free_list.pop_back();
-			}
-			else {
-				/* need to create a new Waiter */
-				waiter_pool_storage.push_back(Waiter());
-				result = &waiter_pool_storage.back();
-				result->init();
-			}
-			return result;
-		}
-
-		void free_waiter(Waiter *waiter)
-		{
-			thread_scoped_lock lock(waiter_pool_lock);
-			waiter_pool_free_list.push_back(waiter);
-		}
-	};
-
+	typedef LockedPool<Waiter,&Waiter::init> WaiterPool;
 	WaiterPool waiter_pool;
 
 	thread_mutex waiter_map_lock;
 	typedef std::map<uint8_t,Waiter*> WaiterMap;
 	WaiterMap waiter_map;
 
+	/* queue for incoming packets that aren't responses */
+	ProducerConsumer<CyclesRPCCallBase*> recv_queue;
+
 	/* send implementation */
 
 	Waiter *register_for_unblock(CyclesRPCCallBase::CallTag tag)
 	{
-		Waiter *waiter = waiter_pool.alloc_waiter();
+		Waiter *waiter = waiter_pool.alloc_item();
 
 		thread_scoped_lock lock(waiter_map_lock);
 		waiter_map.insert(WaiterMap::value_type(tag, waiter));
@@ -1025,9 +1140,8 @@ class RPCStreamManager
 		 * we need to register for unblock before sending */
 
 		Waiter *waiter = NULL;
-		if (item.send_request()) {
+		if (item.send_request())
 			waiter = register_for_unblock(item.get_call_id());
-		}
 
 		boost::system::error_code send_err;
 
@@ -1067,11 +1181,23 @@ class RPCStreamManager
 		if (recv_header.length) {
 			post_async_recv_args();
 		}
+		else if (recv_header.blob_len) {
+			post_async_recv_blob();
+		}
+		else {
+			assert(!"Empty request header!");
+			post_async_recv_header();
+		}
 	}
 
 	void post_async_recv_args()
 	{
 		recv_state = receiving_args;
+
+		/* expand buffer if needed */
+		if (recv_args_buffer.size() < recv_header.length)
+			recv_args_buffer.resize(recv_header.length);
+
 		boost::asio::async_read(socket,
 				boost::asio::buffer(&recv_args_buffer[0], recv_header.length),
 				boost::bind(&RPCStreamManager::handle_recv_args, this,
@@ -1088,6 +1214,11 @@ class RPCStreamManager
 	void post_async_recv_blob()
 	{
 		recv_state = receiving_blob;
+
+		/* expand buffer if needed */
+		if (recv_blob_buffer.size() < recv_header.blob_len)
+			recv_blob_buffer.resize(recv_header.blob_len);
+
 		boost::asio::async_read(socket,
 				boost::asio::buffer(&recv_blob_buffer[0], recv_header.blob_len),
 				boost::bind(&RPCStreamManager::handle_recv_blob, this,
@@ -1105,6 +1236,22 @@ class RPCStreamManager
 
 	void deliver_recv()
 	{
+		CyclesRPCCallBase *item = CyclesRPCCallFactory::decode_item(
+				recv_header, recv_args_buffer, recv_blob_buffer);
+
+		/* inspect header to see if this is a response */
+		if (recv_header.id & CyclesRPCCallBase::response_flag) {
+			/* it is a response */
+
+			/* wake up waiter */
+			WaiterMap::iterator waiter = waiter_map.find(recv_header.tag);
+			waiter->second->notify();
+			waiter_map.erase(waiter);
+		}
+		else {
+			/* it is a request */
+			recv_queue.push(item);
+		}
 	}
 
 	boost::system::error_code connect_impl(const std::string &address)
@@ -1168,11 +1315,83 @@ public:
 	{
 	}
 
+
+	CyclesRPCCallBase *wait_request()
+	{
+		CyclesRPCCallBase *item;
+		recv_queue.pop(item);
+		return item;
+	}
 };
 
 class CyclesRPCCallFactory
 {
 public:
+	static CyclesRPCCallBase *decode_item(RPCHeader &header,
+			std::vector<uint8_t>& args_buffer,
+			std::vector<uint8_t>& blob_buffer)
+	{
+		CyclesRPCCallBase *result;
+		switch (header.id)
+		{
+		case CyclesRPCCallBase::mem_alloc_request:
+			return new RPCCall_mem_alloc(header, args_buffer, blob_buffer);
+
+		case CyclesRPCCallBase::stop_request:
+			return new RPCCall_stop(header, args_buffer, blob_buffer);
+
+		case CyclesRPCCallBase::mem_mem_copy_to_request:
+			return new RPCCall_mem_copy_to(header, args_buffer, blob_buffer);
+
+		case CyclesRPCCallBase::mem_copy_from_request:
+			return new RPCCall_mem_copy_from(header, args_buffer, blob_buffer);
+
+		case CyclesRPCCallBase::mem_zero_request:
+			return new RPCCall_mem_zero(header, args_buffer, blob_buffer);
+
+		case CyclesRPCCallBase::mem_free_request:
+			return new RPCCall_mem_free(header, args_buffer, blob_buffer);
+
+		case CyclesRPCCallBase::const_copy_to_request:
+			return new RPCCall_const_copy_to(header, args_buffer, blob_buffer);
+
+		case CyclesRPCCallBase::tex_alloc_request:
+			return new RPCCall_tex_alloc(header, args_buffer, blob_buffer);
+
+		case CyclesRPCCallBase::tex_free_request:
+			return new RPCCall_tex_free(header, args_buffer, blob_buffer);
+
+		case CyclesRPCCallBase::load_kernels_request:
+			return new RPCCall_load_kernels(header, args_buffer, blob_buffer);
+
+		case CyclesRPCCallBase::task_add_request:
+			return new RPCCall_task_add(header, args_buffer, blob_buffer);
+
+		case CyclesRPCCallBase::task_wait_request:
+			return new RPCCall_task_wait(header, args_buffer, blob_buffer);
+
+		case CyclesRPCCallBase::task_cancel_request:
+			return new RPCCall_task_cancel(header, args_buffer, blob_buffer);
+
+		case CyclesRPCCallBase::acquire_tile_request:
+			return new RPCCall_acquire_tile(header, args_buffer, blob_buffer);
+
+		case CyclesRPCCallBase::release_tile_request:
+			return new RPCCall_release_tile(header, args_buffer, blob_buffer);
+
+		case CyclesRPCCallBase::task_wait_done_request:
+			return new RPCCall_task_wait_done(header, args_buffer, blob_buffer);
+
+		/* responses */
+		case CyclesRPCCallBase::mem_alloc_response:
+		case CyclesRPCCallBase::acquire_tile_response:
+		case CyclesRPCCallBase::release_tile_response:
+
+		default:
+			break;
+		}
+	}
+
 	static void rpc_mem_alloc(RPCStreamManager& stream,
 			device_memory& mem, MemoryType type)
 	{
@@ -1258,18 +1477,12 @@ public:
 		RPCCall_task_wait call;
 		stream.send_call(call);
 	}
-};
 
-/* RAM copy of device memory on server side. On some devices, this is the
- * actual data storage and the device doesn't have a copy, it uses it directly */
-
-class network_device_memory : public device_memory
-{
-public:
-	network_device_memory() {}
-	~network_device_memory() { device_pointer = 0; }
-
-	vector<char> local_data;
+	static void rpc_task_cancel(RPCStreamManager& stream)
+	{
+		RPCCall_task_cancel call;
+		stream.send_call(call);
+	}
 };
 
 /* Remote procedure call Send */

@@ -146,6 +146,7 @@ public:
 			switch (request->get_call_id())
 			{
 			case CyclesRPCCallBase::acquire_tile_request:
+			{
 				if(the_task.acquire_tile(this, tile)) { /* write return as bool */
 					the_tiles.push_back(tile);
 
@@ -155,8 +156,9 @@ public:
 					CyclesRPCCallFactory::rpc_acquire_tile_response(rpc_stream, request, false, tile);
 				}
 				break;
-
+			}
 			case CyclesRPCCallBase::release_tile_request:
+			{
 				request->read(tile);
 
 				TileList::iterator it = tile_list_find(the_tiles, tile);
@@ -169,14 +171,14 @@ public:
 
 				the_task.release_tile(tile);
 
-				/* what's going on here? */
+				/* FIXME: what's going on here? */
 
-				RPCSend snd(socket, "release_tile");
-				snd.write();
-				lock.unlock();
+				//RPCSend snd(socket, "release_tile");
+				//snd.write();
+				//lock.unlock();
 
 				break;
-
+			}
 			case CyclesRPCCallBase::task_wait_done_request:
 				done = true;
 				break;
@@ -189,9 +191,7 @@ public:
 
 	void task_cancel()
 	{
-		thread_scoped_lock lock(rpc_lock);
-		RPCSend snd(socket, "task_cancel");
-		snd.write();
+		CyclesRPCCallFactory::rpc_task_cancel(rpc_stream);
 	}
 };
 
@@ -225,13 +225,12 @@ public:
 	{
 		/* receive remote function calls */
 		for(;;) {
-			thread_scoped_lock lock(rpc_lock);
-			RPCReceive rcv(socket);
+			CyclesRPCCallBase *request = rpc_stream.wait_request();
 
-			if(rcv.name == "stop")
+			if(request->get_call_id() == CyclesRPCCallBase::stop_request)
 				break;
 
-			process(rcv, lock);
+			process(rcv);
 		}
 	}
 
@@ -306,12 +305,8 @@ protected:
 		return result;
 	}
 
-	/* note that the lock must be already acquired upon entry.
-	 * This is necessary because the caller often peeks at
-	 * the header and delegates control to here when it doesn't
-	 * specifically handle the current RPC.
-	 * The lock must be unlocked before returning */
-	void process(CyclesRPCCallBase& rcv, thread_scoped_lock &lock)
+	/*  */
+	void process(CyclesRPCCallBase& rcv)
 	{
 		fprintf(stderr, "receive process %s\n", rcv.name.c_str());
 
@@ -600,31 +595,28 @@ protected:
 
 	void task_release_tile(RenderTile& tile)
 	{
-		thread_scoped_lock acquire_lock(acquire_mutex);
-
+		//thread_scoped_lock acquire_lock(acquire_mutex);
 		if(tile.buffer) tile.buffer = ptr_imap[tile.buffer];
 		if(tile.rng_state) tile.rng_state = ptr_imap[tile.rng_state];
 		if(tile.rgba) tile.rgba = ptr_imap[tile.rgba];
 
+		CyclesRPCCallFactory::rpc_release_tile(rpc_stream, tile);
+
 		thread_scoped_lock lock(rpc_lock);
-		RPCSend snd(socket, "release_tile");
-		snd.add(tile);
-		snd.write();
-		lock.unlock();
 
 		while(1) {
-			lock.lock();
-			RPCReceive rcv(socket);
+			CyclesRPCCallBase *request = rpc_stream.wait_request();
 
-			if(rcv.name == "release_tile")
+			if (request->get_call_id() == CyclesRPCCallBase::release_tile_request)
 				break;
-			else
-				process(rcv, lock);
+
+			process(rcv);
 		}
 	}
 
 	bool task_get_cancel()
 	{
+		/* FIXME: return true if there was any network error */
 		return false;
 	}
 
