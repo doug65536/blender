@@ -44,6 +44,12 @@ CCL_NAMESPACE_BEGIN
 #define BSSRDF_MIN_RADIUS			1e-8f
 #define BSSRDF_MAX_ATTEMPTS			8
 
+#define BB_DRAPPER				800.0
+#define BB_MAX_TABLE_RANGE		12000.0
+#define BB_TABLE_XPOWER			1.5
+#define BB_TABLE_YPOWER			5.0
+#define BB_TABLE_SPACING		2.0
+
 #define TEX_NUM_FLOAT_IMAGES	5
 
 /* device capabilities */
@@ -437,7 +443,7 @@ typedef enum AttributeStandard {
 
 /* Closure data */
 
-#define MAX_CLOSURE 16
+#define MAX_CLOSURE 64
 
 typedef struct ShaderClosure {
 	ClosureType type;
@@ -541,6 +547,9 @@ typedef struct ShaderData {
 	
 	/* length of the ray being shaded */
 	float ray_length;
+	
+	/* ray bounce depth */
+	int ray_depth;
 
 #ifdef __RAY_DIFFERENTIALS__
 	/* differential of P. these are orthogonal to Ng, not N */
@@ -808,6 +817,12 @@ typedef struct KernelBSSRDF {
 	int pad1, pad2;
 } KernelBSSRDF;
 
+typedef struct KernelBlackbody {
+	int table_offset;
+	int pad1, pad2, pad3;
+} KernelBLACKBODY;
+
+
 typedef struct KernelData {
 	KernelCamera cam;
 	KernelFilm film;
@@ -817,6 +832,7 @@ typedef struct KernelData {
 	KernelBVH bvh;
 	KernelCurves curve_kernel_data;
 	KernelBSSRDF bssrdf;
+	KernelBlackbody blackbody;
 } KernelData;
 
 CCL_NAMESPACE_END
