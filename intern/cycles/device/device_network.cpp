@@ -36,6 +36,170 @@ typedef map<device_ptr, DataVector> DataMap;
 /* tile list */
 typedef vector<RenderTile> TileList;
 
+
+CyclesRPCCallBase *CyclesRPCCallFactory::decode_item(RPCHeader &header,
+		std::vector<char>& args_buffer,
+		std::vector<char>& blob_buffer)
+{
+	switch (header.id)
+	{
+	case CyclesRPCCallBase::mem_alloc_request:
+		return new RPCCall_mem_alloc(header, args_buffer, blob_buffer);
+
+	case CyclesRPCCallBase::stop_request:
+		return new RPCCall_stop(header, args_buffer, blob_buffer);
+
+	case CyclesRPCCallBase::mem_mem_copy_to_request:
+		return new RPCCall_mem_copy_to(header, args_buffer, blob_buffer);
+
+	case CyclesRPCCallBase::mem_copy_from_request:
+		return new RPCCall_mem_copy_from(header, args_buffer, blob_buffer);
+
+	case CyclesRPCCallBase::mem_zero_request:
+		return new RPCCall_mem_zero(header, args_buffer, blob_buffer);
+
+	case CyclesRPCCallBase::mem_free_request:
+		return new RPCCall_mem_free(header, args_buffer, blob_buffer);
+
+	case CyclesRPCCallBase::const_copy_to_request:
+		return new RPCCall_const_copy_to(header, args_buffer, blob_buffer);
+
+	case CyclesRPCCallBase::tex_alloc_request:
+		return new RPCCall_tex_alloc(header, args_buffer, blob_buffer);
+
+	case CyclesRPCCallBase::tex_free_request:
+		return new RPCCall_tex_free(header, args_buffer, blob_buffer);
+
+	case CyclesRPCCallBase::load_kernels_request:
+		return new RPCCall_load_kernels(header, args_buffer, blob_buffer);
+
+	case CyclesRPCCallBase::task_add_request:
+		return new RPCCall_task_add(header, args_buffer, blob_buffer);
+
+	case CyclesRPCCallBase::task_wait_request:
+		return new RPCCall_task_wait(header, args_buffer, blob_buffer);
+
+	case CyclesRPCCallBase::task_cancel_request:
+		return new RPCCall_task_cancel(header, args_buffer, blob_buffer);
+
+	case CyclesRPCCallBase::acquire_tile_request:
+		return new RPCCall_acquire_tile(header, args_buffer, blob_buffer);
+
+	case CyclesRPCCallBase::release_tile_request:
+		return new RPCCall_release_tile(header, args_buffer, blob_buffer);
+
+	case CyclesRPCCallBase::task_wait_done_request:
+		return new RPCCall_task_wait_done(header, args_buffer, blob_buffer);
+
+	/* responses */
+	case CyclesRPCCallBase::mem_alloc_response:
+		return new RPCCall_mem_alloc_response(header, args_buffer, blob_buffer);
+
+	case CyclesRPCCallBase::acquire_tile_response:
+		return new RPCCall_acquire_tile_response(header, args_buffer, blob_buffer);
+
+	case CyclesRPCCallBase::release_tile_response:
+		return new RPCCall_release_tile_response(header, args_buffer, blob_buffer);
+
+	default:
+		assert(!"Should not happen!");
+		return NULL;
+	}
+}
+
+void CyclesRPCCallFactory::rpc_mem_alloc(RPCStreamManager& stream,
+		device_memory& mem, MemoryType type)
+{
+	RPCCall_mem_alloc call(mem, type);
+	stream.send_call(call);
+}
+
+void CyclesRPCCallFactory::rpc_stop(RPCStreamManager& stream)
+{
+	RPCCall_stop call;
+	stream.send_call(call);
+}
+
+void CyclesRPCCallFactory::rpc_mem_copy_to(RPCStreamManager& stream, device_memory& mem)
+{
+	RPCCall_mem_copy_to call(mem);
+}
+
+void CyclesRPCCallFactory::rpc_mem_copy_from(RPCStreamManager& stream,
+		device_memory& mem, int y, int w, int h, int elem, void *output)
+{
+	RPCCall_mem_copy_from call(mem, y, w, h, elem, output);
+	/* FIXME: need to get a call id to wait for here */
+	stream.send_call(call);
+	stream.wait_for();
+}
+
+void CyclesRPCCallFactory::rpc_mem_zero(RPCStreamManager& stream,
+		device_memory& mem)
+{
+	RPCCall_mem_zero call(mem);
+	stream.send_call(call);
+}
+
+void CyclesRPCCallFactory::rpc_mem_free(RPCStreamManager& stream,
+		device_memory& mem)
+{
+	RPCCall_mem_free call(mem);
+	stream.send_call(call);
+}
+
+void CyclesRPCCallFactory::rpc_const_copy_to(RPCStreamManager& stream,
+		const std::string& name, void *data, size_t size)
+{
+	RPCCall_const_copy_to call(name, data, size);
+	stream.send_call(call);
+}
+
+void CyclesRPCCallFactory::rpc_tex_alloc(RPCStreamManager& stream,
+		const std::string& name, device_memory& mem,
+		bool interpolation, bool periodic)
+{
+	RPCCall_tex_alloc call(name, mem, interpolation, periodic);
+	stream.send_call(call);
+}
+
+void CyclesRPCCallFactory::rpc_tex_free(RPCStreamManager& stream,
+		device_memory& mem)
+{
+	RPCCall_tex_free call(mem);
+	stream.send_call(call);
+}
+
+bool CyclesRPCCallFactory::rpc_load_kernels(RPCStreamManager& stream,
+		bool experimental)
+{
+	RPCCall_load_kernels call(experimental);
+	/* FIXME: need to get a call id to wait for here */
+	stream.send_call(call);
+	/* FIXME: return actual result */
+	return false;
+}
+
+void CyclesRPCCallFactory::rpc_task_add(RPCStreamManager& stream,
+		DeviceTask& task)
+{
+	RPCCall_task_add call(task);
+	stream.send_call(call);
+}
+
+void CyclesRPCCallFactory::rpc_task_wait(RPCStreamManager& stream)
+{
+	RPCCall_task_wait call;
+	stream.send_call(call);
+}
+
+void CyclesRPCCallFactory::rpc_task_cancel(RPCStreamManager& stream)
+{
+	RPCCall_task_cancel call;
+	stream.send_call(call);
+}
+
+
 /* search a list of tiles and find the one that matches the passed render tile */
 static TileList::iterator tile_list_find(TileList& tile_list, RenderTile& tile)
 {
@@ -230,7 +394,7 @@ public:
 			if(request->get_call_id() == CyclesRPCCallBase::stop_request)
 				break;
 
-			process(rcv);
+			process(*request);
 		}
 	}
 

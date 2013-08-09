@@ -67,13 +67,15 @@ static const string DISCOVER_REPLY_MSG = "REPLY_RENDER_SERVER_IP";
 /* RAM copy of device memory on server side. On some devices, this is the
  * actual data storage and the device doesn't have a copy, it uses it directly */
 
+typedef vector<char> ByteVector;
+
 class network_device_memory : public device_memory
 {
 public:
 	network_device_memory() {}
 	~network_device_memory() { device_pointer = 0; }
 
-	vector<char> local_data;
+	ByteVector local_data;
 };
 
 /* RPC protocol:
@@ -102,8 +104,6 @@ public:
  * IEC559 and IEEE754 mean the same thing */
 BOOST_STATIC_ASSERT(std::numeric_limits<float>::is_iec559);
 BOOST_STATIC_ASSERT(std::numeric_limits<double>::is_iec559);
-
-#undef __LITTLE_ENDIAN__
 
 /* template which compiles to a no-op on little endian platform */
 template<bool need_swap>
@@ -467,6 +467,8 @@ public:
 		acquire_tile_request,
 		release_tile_request,
 		task_wait_done_request,
+		task_acquire_tile_request,
+		task_release_tile_request,
 
 		/* responses */
 		response_flag = 0x80,
@@ -669,8 +671,8 @@ public:
 		own = take_ownership;
 	}
 
-	T *operator*() { return item; }
-	const T *operator*() const { return item; }
+	T &operator*() { return *item; }
+	const T &operator*() const { return *item; }
 	T *operator->() { return item; }
 	const T *operator->() const { return item; }
 	operator T*() { return item; }
@@ -699,16 +701,14 @@ public:
 	{}
 
 	RPCCall_mem_alloc(RPCHeader &header,
-			std::vector<uint8_t>& args_buffer, std::vector<uint8_t>& blob_buffer)
+			ByteVector& args_buffer, ByteVector& blob_buffer)
+		: CyclesRPCCallBase(CyclesRPCCallBase::CallID(header.id))
 	{
-
-	}
-
-	static void deserialize(CyclesRPCCallBase *incoming,
-			network_device_memory& out_mem, MemoryType& out_type)
-	{
-		incoming->read(out_mem);
-		incoming->read(out_type);
+		int inttype;
+		mem.assign(new network_device_memory, true);
+		read(*mem);
+		read(inttype);
+		type = (MemoryType)inttype;
 	}
 };
 
@@ -723,6 +723,12 @@ public:
 	RPCCall_stop()
 		: CyclesRPCCallBase(stop_request)
 	{}
+
+	RPCCall_stop(RPCHeader &header,
+			ByteVector& args_buffer, ByteVector& blob_buffer)
+		: CyclesRPCCallBase(CyclesRPCCallBase::CallID(header.id))
+	{
+	}
 };
 
 class RPCCall_mem_copy_to : public CyclesRPCCallBase
@@ -742,6 +748,12 @@ public:
 		: CyclesRPCCallBase(mem_mem_copy_to_request)
 		, mem(&mem, false)
 	{}
+
+	RPCCall_mem_copy_to(RPCHeader &header,
+			ByteVector& args_buffer, ByteVector& blob_buffer)
+		: CyclesRPCCallBase(CyclesRPCCallBase::CallID(header.id))
+	{
+	}
 };
 
 class RPCCall_mem_copy_from : public CyclesRPCCallBase
@@ -771,6 +783,12 @@ public:
 		: CyclesRPCCallBase(mem_copy_from_request)
 		, mem(&mem, false), y(y), w(w), h(h), elem(elem), output(output)
 	{}
+
+	RPCCall_mem_copy_from(RPCHeader &header,
+			ByteVector& args_buffer, ByteVector& blob_buffer)
+		: CyclesRPCCallBase(CyclesRPCCallBase::CallID(header.id))
+	{
+	}
 };
 
 class RPCCall_mem_zero : public CyclesRPCCallBase
@@ -788,6 +806,12 @@ public:
 		: CyclesRPCCallBase(mem_zero_request)
 		, mem(&mem, false)
 	{}
+
+	RPCCall_mem_zero(RPCHeader &header,
+			ByteVector& args_buffer, ByteVector& blob_buffer)
+		: CyclesRPCCallBase(CyclesRPCCallBase::CallID(header.id))
+	{
+	}
 };
 
 class RPCCall_mem_free : public CyclesRPCCallBase
@@ -805,6 +829,12 @@ public:
 		: CyclesRPCCallBase(mem_free_request)
 		, mem(&mem, false)
 	{}
+
+	RPCCall_mem_free(RPCHeader &header,
+			ByteVector& args_buffer, ByteVector& blob_buffer)
+		: CyclesRPCCallBase(CyclesRPCCallBase::CallID(header.id))
+	{
+	}
 };
 
 class RPCCall_const_copy_to : public CyclesRPCCallBase
@@ -826,6 +856,12 @@ public:
 		: CyclesRPCCallBase(const_copy_to_request)
 		, name(&name, false), data(data), size(size)
 	{}
+
+	RPCCall_const_copy_to(RPCHeader &header,
+			ByteVector& args_buffer, ByteVector& blob_buffer)
+		: CyclesRPCCallBase(CyclesRPCCallBase::CallID(header.id))
+	{
+	}
 };
 
 class RPCCall_tex_alloc : public CyclesRPCCallBase
@@ -852,6 +888,12 @@ public:
 		, name(&name, false), mem(&mem, false)
 		, interpolation(interpolation), periodic(periodic)
 	{}
+
+	RPCCall_tex_alloc(RPCHeader &header,
+			ByteVector& args_buffer, ByteVector& blob_buffer)
+		: CyclesRPCCallBase(CyclesRPCCallBase::CallID(header.id))
+	{
+	}
 };
 
 class RPCCall_tex_free : public CyclesRPCCallBase
@@ -869,6 +911,12 @@ public:
 		: CyclesRPCCallBase(tex_free_request)
 		, mem(&mem, false)
 	{}
+
+	RPCCall_tex_free(RPCHeader &header,
+			ByteVector& args_buffer, ByteVector& blob_buffer)
+		: CyclesRPCCallBase(CyclesRPCCallBase::CallID(header.id))
+	{
+	}
 };
 
 class RPCCall_load_kernels : public CyclesRPCCallBase
@@ -893,6 +941,12 @@ public:
 		, experimental(experimental)
 	{}
 
+	RPCCall_load_kernels(RPCHeader &header,
+			ByteVector& args_buffer, ByteVector& blob_buffer)
+		: CyclesRPCCallBase(CyclesRPCCallBase::CallID(header.id))
+	{
+	}
+
 	bool get_result() const
 	{
 		return result;
@@ -914,6 +968,12 @@ public:
 		: CyclesRPCCallBase(task_add_request)
 		, task(&task, false)
 	{}
+
+	RPCCall_task_add(RPCHeader &header,
+			ByteVector& args_buffer, ByteVector& blob_buffer)
+		: CyclesRPCCallBase(CyclesRPCCallBase::CallID(header.id))
+	{
+	}
 };
 
 class RPCCall_task_wait : public CyclesRPCCallBase
@@ -927,6 +987,12 @@ public:
 	RPCCall_task_wait()
 		: CyclesRPCCallBase(task_wait_request)
 	{}
+
+	RPCCall_task_wait(RPCHeader &header,
+			ByteVector& args_buffer, ByteVector& blob_buffer)
+		: CyclesRPCCallBase(CyclesRPCCallBase::CallID(header.id))
+	{
+	}
 };
 
 class RPCCall_task_cancel : public CyclesRPCCallBase
@@ -940,6 +1006,132 @@ public:
 	RPCCall_task_cancel()
 		: CyclesRPCCallBase(task_cancel_request)
 	{}
+
+	RPCCall_task_cancel(RPCHeader &header,
+			ByteVector& args_buffer, ByteVector& blob_buffer)
+		: CyclesRPCCallBase(CyclesRPCCallBase::CallID(header.id))
+	{
+	}
+};
+
+class RPCCall_acquire_tile : public CyclesRPCCallBase
+{
+	bool send_request()
+	{
+		return false;
+	}
+
+public:
+	RPCCall_acquire_tile()
+		: CyclesRPCCallBase(task_acquire_tile_request)
+	{
+	}
+
+	RPCCall_acquire_tile(RPCHeader &header,
+			ByteVector& args_buffer, ByteVector& blob_buffer)
+		: CyclesRPCCallBase(CyclesRPCCallBase::CallID(header.id))
+	{
+	}
+};
+
+class RPCCall_release_tile : public CyclesRPCCallBase
+{
+	bool send_request()
+	{
+		return false;
+	}
+
+public:
+	RPCCall_release_tile()
+		: CyclesRPCCallBase(task_release_tile_request)
+	{
+	}
+
+	RPCCall_release_tile(RPCHeader &header,
+			ByteVector& args_buffer, ByteVector& blob_buffer)
+		: CyclesRPCCallBase(CyclesRPCCallBase::CallID(header.id))
+	{
+	}
+};
+
+class RPCCall_task_wait_done : public CyclesRPCCallBase
+{
+	bool send_request()
+	{
+		return false;
+	}
+
+public:
+	RPCCall_task_wait_done()
+		: CyclesRPCCallBase(task_wait_done_request)
+	{
+	}
+
+	RPCCall_task_wait_done(RPCHeader &header,
+			ByteVector& args_buffer, ByteVector& blob_buffer)
+		: CyclesRPCCallBase(CyclesRPCCallBase::CallID(header.id))
+	{
+	}
+};
+
+class RPCCall_mem_alloc_response : public CyclesRPCCallBase
+{
+	bool send_request()
+	{
+		return false;
+	}
+
+public:
+	RPCCall_mem_alloc_response()
+		: CyclesRPCCallBase(mem_alloc_response)
+	{
+	}
+
+	RPCCall_mem_alloc_response(RPCHeader &header,
+			ByteVector& args_buffer, ByteVector& blob_buffer)
+		: CyclesRPCCallBase(CyclesRPCCallBase::CallID(header.id))
+	{
+	}
+};
+
+class RPCCall_acquire_tile_response : public CyclesRPCCallBase
+{
+	bool send_request()
+	{
+		return false;
+	}
+
+public:
+	RPCCall_acquire_tile_response()
+		: CyclesRPCCallBase(acquire_tile_response)
+	{
+	}
+
+	RPCCall_acquire_tile_response(RPCHeader &header,
+			ByteVector& args_buffer, ByteVector& blob_buffer)
+		: CyclesRPCCallBase(CyclesRPCCallBase::CallID(header.id))
+	{
+	}
+};
+
+class RPCCall_release_tile_response : public CyclesRPCCallBase
+{
+	bool send_request()
+	{
+		return false;
+	}
+
+public:
+	RPCCall_release_tile_response()
+		: CyclesRPCCallBase(release_tile_response)
+	{
+	}
+
+	RPCCall_release_tile_response(RPCHeader &header,
+			ByteVector& args_buffer, ByteVector& blob_buffer)
+		: CyclesRPCCallBase(CyclesRPCCallBase::CallID(header.id))
+	{
+	}
 };
 
 /* implements a generic thread-safe pool. Objects are guaranteed not to be moved.
@@ -990,6 +1182,55 @@ public:
 	}
 };
 
+class RPCStreamManager;
+
+class CyclesRPCCallFactory
+{
+public:
+	static CyclesRPCCallBase *decode_item(RPCHeader &header,
+			ByteVector &args_buffer,
+			ByteVector &blob_buffer);
+
+	static void rpc_mem_alloc(RPCStreamManager& stream,
+			device_memory& mem, MemoryType type);
+
+	static void rpc_stop(RPCStreamManager& stream);
+
+	static void rpc_mem_copy_to(RPCStreamManager& stream, device_memory& mem);
+
+	static void rpc_mem_copy_from(RPCStreamManager& stream,
+			device_memory& mem, int y, int w, int h, int elem, void *output);
+
+	static void rpc_mem_zero(RPCStreamManager& stream,
+			device_memory& mem);
+
+	static void rpc_mem_free(RPCStreamManager& stream,
+			device_memory& mem);
+
+	static void rpc_const_copy_to(RPCStreamManager& stream,
+			const std::string& name, void *data, size_t size);
+
+	static void rpc_tex_alloc(RPCStreamManager& stream,
+			const std::string& name, device_memory& mem,
+			bool interpolation, bool periodic);
+
+	static void rpc_tex_free(RPCStreamManager& stream,
+			device_memory& mem);
+
+	static bool rpc_load_kernels(RPCStreamManager& stream,
+			bool experimental);
+
+	static void rpc_task_add(RPCStreamManager& stream,
+			DeviceTask& task);
+
+	static void rpc_task_wait(RPCStreamManager& stream);
+
+	static void rpc_task_cancel(RPCStreamManager& stream);
+
+	static void rpc_acquire_tile_response(RPCStreamManager& stream, CyclesRPCCallBase *request,
+			bool retval, RenderTile& tile);
+};
+
 /* RPC stream manager
  *  on the server side:
  *   - it provides a way for the main thread to wait for and return
@@ -1009,7 +1250,7 @@ public:
 class RPCStreamManager
 {
 	boost::asio::io_service io_service;
-	boost::asio::ip::tcp::socket socket;
+	boost::asio::ip::tcp::socket& socket;
 
 	/* there can be contention to send, because sends can be performed from any thread
 	 * there can't be contention to receive, we always have async receives up, and
@@ -1029,8 +1270,8 @@ class RPCStreamManager
 	ReceiveState recv_state;
 
 	RPCHeader recv_header;
-	std::vector<char> recv_args_buffer;
-	std::vector<char> recv_blob_buffer;
+	ByteVector recv_args_buffer;
+	ByteVector recv_blob_buffer;
 
 	/* object upon which to block when waiting */
 	class Waiter
@@ -1298,6 +1539,14 @@ public:
 	{
 	}
 
+	/* constructor called when operating as a server that accepts
+	 * an inbound connection from client */
+	RPCStreamManager(tcp::socket& incoming)
+		: socket(incoming)
+		, recv_args_buffer(CyclesRPCCallBase::max_payload, 0)
+	{
+	}
+
 	std::string connect_to_server(const std::string &address)
 	{
 		std::string err;
@@ -1321,167 +1570,6 @@ public:
 		CyclesRPCCallBase *item;
 		recv_queue.pop(item);
 		return item;
-	}
-};
-
-class CyclesRPCCallFactory
-{
-public:
-	static CyclesRPCCallBase *decode_item(RPCHeader &header,
-			std::vector<uint8_t>& args_buffer,
-			std::vector<uint8_t>& blob_buffer)
-	{
-		CyclesRPCCallBase *result;
-		switch (header.id)
-		{
-		case CyclesRPCCallBase::mem_alloc_request:
-			return new RPCCall_mem_alloc(header, args_buffer, blob_buffer);
-
-		case CyclesRPCCallBase::stop_request:
-			return new RPCCall_stop(header, args_buffer, blob_buffer);
-
-		case CyclesRPCCallBase::mem_mem_copy_to_request:
-			return new RPCCall_mem_copy_to(header, args_buffer, blob_buffer);
-
-		case CyclesRPCCallBase::mem_copy_from_request:
-			return new RPCCall_mem_copy_from(header, args_buffer, blob_buffer);
-
-		case CyclesRPCCallBase::mem_zero_request:
-			return new RPCCall_mem_zero(header, args_buffer, blob_buffer);
-
-		case CyclesRPCCallBase::mem_free_request:
-			return new RPCCall_mem_free(header, args_buffer, blob_buffer);
-
-		case CyclesRPCCallBase::const_copy_to_request:
-			return new RPCCall_const_copy_to(header, args_buffer, blob_buffer);
-
-		case CyclesRPCCallBase::tex_alloc_request:
-			return new RPCCall_tex_alloc(header, args_buffer, blob_buffer);
-
-		case CyclesRPCCallBase::tex_free_request:
-			return new RPCCall_tex_free(header, args_buffer, blob_buffer);
-
-		case CyclesRPCCallBase::load_kernels_request:
-			return new RPCCall_load_kernels(header, args_buffer, blob_buffer);
-
-		case CyclesRPCCallBase::task_add_request:
-			return new RPCCall_task_add(header, args_buffer, blob_buffer);
-
-		case CyclesRPCCallBase::task_wait_request:
-			return new RPCCall_task_wait(header, args_buffer, blob_buffer);
-
-		case CyclesRPCCallBase::task_cancel_request:
-			return new RPCCall_task_cancel(header, args_buffer, blob_buffer);
-
-		case CyclesRPCCallBase::acquire_tile_request:
-			return new RPCCall_acquire_tile(header, args_buffer, blob_buffer);
-
-		case CyclesRPCCallBase::release_tile_request:
-			return new RPCCall_release_tile(header, args_buffer, blob_buffer);
-
-		case CyclesRPCCallBase::task_wait_done_request:
-			return new RPCCall_task_wait_done(header, args_buffer, blob_buffer);
-
-		/* responses */
-		case CyclesRPCCallBase::mem_alloc_response:
-		case CyclesRPCCallBase::acquire_tile_response:
-		case CyclesRPCCallBase::release_tile_response:
-
-		default:
-			break;
-		}
-	}
-
-	static void rpc_mem_alloc(RPCStreamManager& stream,
-			device_memory& mem, MemoryType type)
-	{
-		RPCCall_mem_alloc call(mem, type);
-		stream.send_call(call);
-	}
-
-	static void rpc_stop(RPCStreamManager& stream)
-	{
-		RPCCall_stop call;
-		stream.send_call(call);
-	}
-
-	static void rpc_mem_copy_to(RPCStreamManager& stream, device_memory& mem)
-	{
-		RPCCall_mem_copy_to call(mem);
-	}
-
-	static void rpc_mem_copy_from(RPCStreamManager& stream,
-			device_memory& mem, int y, int w, int h, int elem, void *output)
-	{
-		RPCCall_mem_copy_from call(mem, y, w, h, elem, output);
-		/* FIXME: need to get a call id to wait for here */
-		stream.send_call(call);
-		stream.wait_for();
-	}
-
-	static void rpc_mem_zero(RPCStreamManager& stream,
-			device_memory& mem)
-	{
-		RPCCall_mem_zero call(mem);
-		stream.send_call(call);
-	}
-
-	static void rpc_mem_free(RPCStreamManager& stream,
-			device_memory& mem)
-	{
-		RPCCall_mem_free call(mem);
-		stream.send_call(call);
-	}
-
-	static void rpc_const_copy_to(RPCStreamManager& stream,
-			const std::string& name, void *data, size_t size)
-	{
-		RPCCall_const_copy_to call(name, data, size);
-		stream.send_call(call);
-	}
-
-	static void rpc_tex_alloc(RPCStreamManager& stream,
-			const std::string& name, device_memory& mem,
-			bool interpolation, bool periodic)
-	{
-		RPCCall_tex_alloc call(name, mem, interpolation, periodic);
-		stream.send_call(call);
-	}
-
-	static void rpc_tex_free(RPCStreamManager& stream,
-			device_memory& mem)
-	{
-		RPCCall_tex_free call(mem);
-		stream.send_call(call);
-	}
-
-	static bool rpc_load_kernels(RPCStreamManager& stream,
-			bool experimental)
-	{
-		RPCCall_load_kernels call(experimental);
-		/* FIXME: need to get a call id to wait for here */
-		stream.send_call(call);
-		/* FIXME: return actual result */
-		return false;
-	}
-
-	static void rpc_task_add(RPCStreamManager& stream,
-			DeviceTask& task)
-	{
-		RPCCall_task_add call(task);
-		stream.send_call(call);
-	}
-
-	static void rpc_task_wait(RPCStreamManager& stream)
-	{
-		RPCCall_task_wait call;
-		stream.send_call(call);
-	}
-
-	static void rpc_task_cancel(RPCStreamManager& stream)
-	{
-		RPCCall_task_cancel call;
-		stream.send_call(call);
 	}
 };
 
